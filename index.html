@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SSH Web Terminal</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
+    <style>
+        :root { --tab-height: 40px; --bar-height: 29px; --bg-color: #1e1e1e; --tab-bg: #252526; --tab-active-bg: #333333; --border-color: #333; }
+        body, html { margin: 0; padding: 0; height: 100%; background-color: var(--bg-color); color: #ccc; font-family: sans-serif; overflow: hidden; }
+        #app-container { display: flex; flex-direction: column; height: 100vh; }
+        #tab-bar { display: flex; align-items: center; background-color: var(--tab-bg); height: var(--tab-height); flex-shrink: 0; border-bottom: 1px solid var(--border-color); }
+        #terminal-panes { flex-grow: 1; position: relative; }
+        .terminal-pane { display: none; flex-direction: column; width: 100%; height: 100%; }
+        .terminal-pane.active { display: flex; }
+        .shortcuts-bar { height: var(--bar-height); padding: 0 4px; background-color: var(--tab-bg); flex-shrink: 0; display: flex; align-items: center; }
+        .xterm-container { flex-grow: 1; position: relative; }
+        .xterm-container .terminal, .xterm-container .xterm-viewport { width: 100% !important; height: 100% !important; }
+        .shortcuts-bar .btn { padding: 2px 8px; font-size: 0.8rem; }
+        .tab { display: flex; align-items: center; padding: 0 15px; height: 100%; border-right: 1px solid var(--border-color); cursor: pointer; }
+        .tab.active { background-color: var(--tab-active-bg); }
+        .tab-close { margin-left: 10px; padding: 2px 5px; border-radius: 4px; }
+        .tab-close:hover { background-color: rgba(255,255,255,0.1); }
+        #new-tab-btn { padding: 0 15px; font-size: 24px; cursor: pointer; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 100; }
+        .modal-overlay.active { display: flex; }
+        .modal-box { padding: 2rem; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--tab-bg); width: 80%; max-width: 500px; }
+        .modal-box h2 { margin-top: 0; text-align: center; }
+        #server-select { font-size: 1rem; padding: 0.5rem; width: calc(100% - 1rem - 110px); margin-right: 0.5rem; }
+        .btn { font-size: 1rem; padding: 0.5rem 1rem; cursor: pointer; border: 1px solid #444; background-color: #3c3c3c; color: #ccc; margin-left: 4px; }
+        .btn-primary { background-color: #0e639c; border-color: #147ab8; color: #fff; }
+        .btn-group { margin-top: 1rem; display: flex; justify-content: space-between; }
+        textarea { width: 100%; height: 300px; box-sizing: border-box; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333; font-family: monospace; }
+        .editor-buttons { margin-top: 1rem; text-align: right; }
+        .message-area { margin-top: 1rem; text-align: center; color: #f00; }
+        .loading-spinner { display: none; border: 4px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; width: 24px; height: 24px; animation: spin .8s linear infinite; margin: 0 auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <div id="tab-bar"><div id="new-tab-btn">+</div></div>
+        <div id="terminal-panes"></div>
+    </div>
+    <div id="login-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h2>Login</h2>
+            <div class="message-area" id="login-error-message"></div>
+            <div>
+                <input type="text" id="username-input" placeholder="Username" style="width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333;"/>
+                <input type="password" id="password-input" placeholder="Password" style="width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333;"/>
+                <button id="login-btn" class="btn btn-primary" style="width: 100%;">Login</button>
+            </div>
+        </div>
+    </div>
+    <div id="connect-modal" class="modal-overlay"></div>
+    <div id="hosts-editor-modal" class="modal-overlay"></div>
+    <div id="shortcuts-editor-modal" class="modal-overlay"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-serialize/lib/xterm-addon-serialize.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginModal = document.getElementById('login-modal');
+            const appContainer = document.getElementById('app-container');
+            const modals = { connect: document.getElementById('connect-modal'), hostsEditor: document.getElementById('hosts-editor-modal'), shortcutsEditor: document.getElementById('shortcuts-editor-modal') };
+            modals.connect.innerHTML = `<div class="modal-box"><h2>Select Host</h2><div class="message-area" id="connect-error-message"></div><div class="loading-spinner" id="connect-loading-spinner"></div><div><select id="server-select"></select><button id="connect-btn" class="btn btn-primary">Connect</button></div><div class="btn-group"><button id="edit-hosts-btn" class="btn">Edit Hosts</button><button id="edit-shortcuts-btn" class="btn">Edit Shortcuts</button><button id="logout-btn" class="btn">Logout</button></div></div>`;
+            modals.hostsEditor.innerHTML = `<div class="modal-box"><h2>Edit Hosts (hosts.json)</h2><textarea id="hosts-textarea"></textarea><div class="editor-buttons"><button data-action="cancel-edit" class="btn">Cancel</button><button data-action="save-hosts" class="btn btn-primary">Save</button></div></div>`;
+            modals.shortcutsEditor.innerHTML = `<div class="modal-box"><h2>Edit Shortcuts (shortcuts.json)</h2><textarea id="shortcuts-textarea"></textarea><div class="editor-buttons"><button data-action="cancel-edit" class="btn">Cancel</button><button data-action="save-shortcuts" class="btn btn-primary">Save</button></div></div>`;
+
+            const tabBar = document.getElementById('tab-bar');
+            const terminalPanes = document.getElementById('terminal-panes');
+            const serverSelect = document.getElementById('server-select');
+            const connectBtn = document.getElementById('connect-btn');
+            const connectErrorMessage = document.getElementById('connect-error-message');
+            const connectLoadingSpinner = document.getElementById('connect-loading-spinner');
+            const hostsTextarea = document.getElementById('hosts-textarea');
+            const shortcutsTextarea = document.getElementById('shortcuts-textarea');
+            const newTabBtn = document.getElementById('new-tab-btn');
+
+            let terminals = {};
+
+            function showModal(modalName) { Object.values(modals).forEach(m => m.classList.remove('active')); if(modalName) modals[modalName].classList.add('active'); }
+            function getSessions() { return JSON.parse(localStorage.getItem('sshSessions') || '[]'); }
+            function saveSessions(sessions) { localStorage.setItem('sshSessions', JSON.stringify(sessions)); }
+
+            async function fetchWithAuth(url, options = {}) {
+                const token = localStorage.getItem('authToken');
+                if (!token) {
+                    showLoginModal();
+                    throw new Error('No auth token');
+                }
+
+                options.headers = { ...options.headers, 'Authorization': `Bearer ${token}` };
+
+                const response = await fetch(url, options);
+
+                if (response.status === 401 || response.status === 440) {
+                    localStorage.removeItem('authToken');
+                    showLoginModal();
+                    throw new Error('Session expired');
+                }
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                }
+
+                return response;
+            }
+
+            function renderTabs() {
+                const sessions = getSessions();
+                document.querySelectorAll('.tab').forEach(t => t.remove());
+                sessions.forEach(session => {
+                    const tabEl = document.createElement('div');
+                    tabEl.className = 'tab';
+                    tabEl.dataset.sessionId = session.sessionId;
+                    tabEl.innerHTML = `<span>${session.hostName}</span><span class="tab-close">x</span>`;
+                    tabBar.insertBefore(tabEl, newTabBtn);
+                });
+            }
+
+            function activateTab(sessionId) {
+                if (!terminals[sessionId]) return;
+                const sessions = getSessions().map(s => ({ ...s, isActive: s.sessionId === sessionId }));
+                saveSessions(sessions);
+                document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.sessionId === sessionId));
+                document.querySelectorAll('.terminal-pane').forEach(p => p.classList.toggle('active', p.dataset.sessionId === sessionId));
+                const termInfo = terminals[sessionId];
+                if (termInfo) { setTimeout(() => termInfo.fitAddon.fit(), 0); termInfo.term.focus(); }
+            }
+
+            function createTerminal(session, ws) {
+                const { sessionId, hostName, content } = session;
+                const pane = document.createElement('div');
+                pane.className = 'terminal-pane';
+                pane.dataset.sessionId = sessionId;
+                pane.innerHTML = `<div id="shortcuts-bar-${sessionId}" class="shortcuts-bar"></div><div class="xterm-container"></div>`;
+                terminalPanes.appendChild(pane);
+                const term = new Terminal({ cursorBlink: true, convertEol: true });
+                const fitAddon = new FitAddon.FitAddon();
+                const serializeAddon = new SerializeAddon.SerializeAddon();
+                term.loadAddon(fitAddon); term.loadAddon(serializeAddon);
+                term.open(pane.querySelector('.xterm-container'));
+                if (content) term.write(content);
+                window.addEventListener('resize', () => fitAddon.fit());
+                terminals[sessionId] = { term, serializeAddon, ws, pane, fitAddon };
+                const onOpenLogic = () => { ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows })); loadShortcuts(ws, term, sessionId, hostName); };
+                ws.onopen = onOpenLogic;
+                if (ws.readyState === WebSocket.OPEN) onOpenLogic();
+                ws.onmessage = (event) => { try { const msg = JSON.parse(event.data); if(msg.type === 'error') { alert('Connection Failed: ' + msg.message); ws.close(); } } catch (e) { term.write(event.data); } };
+                ws.onclose = () => closeTab(sessionId);
+                term.onData(data => ws.send(JSON.stringify({ type: 'data', data: data })));
+                renderTabs();
+            }
+            
+            function loadShortcuts(ws, term, sessionId, hostName) {
+                const bar = document.getElementById(`shortcuts-bar-${sessionId}`);
+                if (!bar) return;
+                bar.innerHTML = '';
+                fetchWithAuth('/api/shortcuts').then(r => r.json()).then(shortcuts => {
+                    if (!Array.isArray(shortcuts)) return;
+                    const filtered = shortcuts.filter(sc => {
+                        return !sc.for || (Array.isArray(sc.for) && sc.for.includes(hostName));
+                    });
+                    if (filtered.length === 0) return;
+                    filtered.forEach((sc) => {
+                        const btn = document.createElement('button');
+                        btn.className = 'btn'; btn.textContent = sc.name;
+                        btn.onclick = () => { ws.send(JSON.stringify({ type: 'shortcut', command: sc.command })); term.focus(); };
+                        bar.appendChild(btn);
+                    });
+                }).catch(console.error);
+            }
+
+            function closeTab(sessionId) {
+                let sessions = getSessions();
+                const sessionToClose = sessions.find(s => s.sessionId === sessionId);
+                if (!sessionToClose) return;
+                const wasActive = sessionToClose.isActive;
+                sessions = sessions.filter(s => s.sessionId !== sessionId);
+                terminals[sessionId]?.ws.close();
+                terminals[sessionId]?.term.dispose();
+                terminals[sessionId]?.pane.remove();
+                document.querySelector(`.tab[data-session-id="${sessionId}"]`)?.remove();
+                delete terminals[sessionId];
+                if (wasActive && sessions.length > 0) { sessions[0].isActive = true; activateTab(sessions[0].sessionId); }
+                saveSessions(sessions);
+                if (getSessions().length === 0) newTabBtn.click();
+            }
+
+            function populateServerList() {
+                const serverSelect = document.getElementById('server-select'); // Get element here
+                fetchWithAuth('/api/servers').then(r => r.json()).then(servers => {
+                    serverSelect.innerHTML = '';
+                    servers.forEach(s => serverSelect.add(new Option(s.name, s.name)));
+                    const lastSelectedHost = localStorage.getItem('lastSelectedHost');
+                    if (lastSelectedHost) {
+                        serverSelect.value = lastSelectedHost;
+                    }
+                }).catch(err => {
+                    console.error('Failed to populate server list:', err);
+                    connectErrorMessage.textContent = 'Could not load servers. Your session may have expired.';
+                });
+            }
+
+            function showLoginModal() {
+                loginModal.classList.add('active');
+                appContainer.style.display = 'none';
+            }
+
+            function hideLoginModal() {
+                loginModal.classList.remove('active');
+                appContainer.style.display = 'flex';
+            }
+
+            function logout() {
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('sshSessions');
+                Object.values(terminals).forEach(t => t.ws.close());
+                terminals = {};
+                document.querySelectorAll('.terminal-pane').forEach(p => p.remove());
+                document.querySelectorAll('.tab').forEach(t => t.remove());
+                showModal(null);
+                showLoginModal();
+            }
+
+            function initializeApp() {
+                hideLoginModal();
+                const sessions = getSessions();
+                if (sessions.length > 0) {
+                    renderTabs();
+                    sessions.forEach(session => {
+                        const token = localStorage.getItem('authToken');
+                        const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ssh?sessionId=${session.sessionId}&token=${token}`);
+                        createTerminal(session, ws);
+                    });
+                    const activeSession = sessions.find(s => s.isActive);
+                    if (activeSession) activateTab(activeSession.sessionId);
+                    else if (sessions.length > 0) activateTab(sessions[0].sessionId);
+                } else {
+                    newTabBtn.click();
+                }
+            }
+
+            // --- Event Listeners ---
+            newTabBtn.addEventListener('click', () => { populateServerList(); showModal('connect'); });
+            document.getElementById('connect-btn').addEventListener('click', () => {
+                const serverName = document.getElementById('server-select').value;
+                if (serverName === '') return;
+                const connectErrorMessage = document.getElementById('connect-error-message');
+                const connectLoadingSpinner = document.getElementById('connect-loading-spinner');
+                const connectBtn = document.getElementById('connect-btn');
+                const serverSelect = document.getElementById('server-select');
+
+                connectErrorMessage.textContent = '';
+                connectLoadingSpinner.style.display = 'block';
+                connectBtn.disabled = true;
+                serverSelect.disabled = true;
+
+                localStorage.setItem('lastSelectedHost', serverName);
+                
+                const token = localStorage.getItem('authToken');
+                const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ssh?server=${serverName}&token=${token}`);
+                
+                ws.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'session') {
+                            ws.onmessage = null;
+                            let sessions = getSessions();
+                            sessions.forEach(s => s.isActive = false);
+                            sessions.push({ sessionId: msg.sessionId, hostName: serverName, isActive: true });
+                            saveSessions(sessions);
+                            createTerminal({ sessionId: msg.sessionId, hostName: serverName }, ws);
+                            activateTab(msg.sessionId);
+                            connectLoadingSpinner.style.display = 'none';
+                            connectBtn.disabled = false;
+                            serverSelect.disabled = false;
+                            showModal(null);
+                        } else if (msg.type === 'error') {
+                            connectErrorMessage.textContent = msg.message;
+                            connectLoadingSpinner.style.display = 'none';
+                            connectBtn.disabled = false;
+                            serverSelect.disabled = false;
+                            ws.close();
+                        }
+                    } catch (e) { /* Ignore */ }
+                };
+                ws.onclose = () => {
+                    if (modals.connect.classList.contains('active')) {
+                        connectLoadingSpinner.style.display = 'none';
+                        connectBtn.disabled = false;
+                        serverSelect.disabled = false;
+                    }
+                };
+            });
+            document.getElementById('logout-btn').addEventListener('click', logout);
+            document.getElementById('edit-hosts-btn').addEventListener('click', () => fetchWithAuth('/api/hosts-config').then(r=>r.json()).then(d => { hostsTextarea.value = d.config; showModal('hostsEditor'); }).catch(err => alert('Error: ' + err.message)));
+            document.getElementById('edit-shortcuts-btn').addEventListener('click', () => fetchWithAuth('/api/shortcuts-config').then(r=>r.json()).then(d => { shortcutsTextarea.value = d.config; showModal('shortcutsEditor'); }).catch(err => alert('Error: ' + err.message)));
+            document.body.addEventListener('click', (e) => {
+                const action = e.target.dataset.action;
+                if (action === 'cancel-edit') showModal('connect');
+                if (action === 'save-hosts') fetchWithAuth('/api/hosts-config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({config: hostsTextarea.value}) }).then(r=>r.json()).then(d => { if(!d.success) throw new Error(d.error); alert('Hosts saved!'); populateServerList(); showModal('connect'); }).catch(err => alert('Save failed: ' + err.message));
+                if (action === 'save-shortcuts') fetchWithAuth('/api/shortcuts-config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({config: shortcutsTextarea.value}) }).then(r=>r.json()).then(d => { if(!d.success) throw new Error(d.error); alert('Shortcuts saved!'); showModal('connect'); }).catch(err => alert('Save failed: ' + err.message));
+            });
+            Object.values(modals).forEach(modal => {
+                modal.addEventListener('click', (e) => { if (e.target === modal) showModal(null); });
+            });
+            tabBar.addEventListener('click', (e) => {
+                const tab = e.target.closest('.tab');
+                if (!tab) return;
+                if (e.target.classList.contains('tab-close')) closeTab(tab.dataset.sessionId);
+                else activateTab(tab.dataset.sessionId);
+            });
+            window.addEventListener('beforeunload', () => {
+                let sessions = getSessions();
+                if (sessions.length === 0) return;
+                sessions.forEach(session => { const termInfo = terminals[session.sessionId]; if (termInfo) session.content = termInfo.serializeAddon.serialize(); });
+                saveSessions(sessions);
+            });
+
+            document.getElementById('login-btn').addEventListener('click', async () => {
+                const username = document.getElementById('username-input').value;
+                const password = document.getElementById('password-input').value;
+                const errorMessage = document.getElementById('login-error-message');
+                errorMessage.textContent = '';
+
+                try {
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        localStorage.setItem('authToken', data.token);
+                        initializeApp();
+                    } else {
+                        errorMessage.textContent = data.message || 'Login failed.';
+                    }
+                } catch (error) {
+                    errorMessage.textContent = 'An error occurred during login.';
+                }
+            });
+
+            // --- Initial Load ---
+            if (localStorage.getItem('authToken')) {
+                initializeApp();
+            } else {
+                showLoginModal();
+            }
+        });
+    </script>
+</body>
+</html>

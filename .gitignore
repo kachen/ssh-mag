@@ -1,0 +1,5 @@
+node_modules/
+hosts.json
+shortcuts.json
+users.json
+.env
