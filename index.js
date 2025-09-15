@@ -109,11 +109,54 @@ function setupWebSocketListeners(ws, stream, sshConfig) {
             if (msg.type === 'data') stream.write(msg.data);
             else if (msg.type === 'resize') stream.setWindow(msg.rows, msg.cols);
             else if (msg.type === 'shortcut') {
+                const match = msg.command.match(/\{([\w.-]+)\.([\w]+)\}/);
+                if (match) {
+                    const requiredHostKey = match[1];
+                    const paramKey = match[2];
+
+                    if (!hosts[requiredHostKey]) {
+                        const possibleHosts = Object.keys(hosts).filter(hostName => 
+                            hosts[hostName].hasOwnProperty(paramKey)
+                        );
+
+                        if (possibleHosts.length > 0) {
+                            ws.send(JSON.stringify({
+                                type: 'request_host_selection',
+                                command: msg.command,
+                                hosts: possibleHosts,
+                                requiredHostKey: requiredHostKey
+                            }));
+                            return;
+                        } else {
+                            ws.send(JSON.stringify({
+                                type: 'error',
+                                message: `Shortcut error: No host found with the parameter '${paramKey}'.`
+                            }));
+                            return;
+                        }
+                    }
+                }
+
                 let command = msg.command;
                 command = command.replace(/\{host\}/g, sshConfig.host || '');
                 command = command.replace(/\{username\}/g, sshConfig.username || '');
                 command = command.replace(/\{port\}/g, sshConfig.port || '22');
-                command = command.replace(/\{([\w.-]+)\.([\w]+)\}/g, (match, hostKey, paramKey) => (hosts[hostKey] && hosts[hostKey][paramKey]) ? hosts[hostKey][paramKey] : match);
+                command = command.replace(/\{([\w.-]+)\.([\w]+)\}/g, (match, hostKey, paramKey) => {
+                    const hostInfo = hosts[hostKey];
+                    if (!hostInfo) return match; 
+                    return hostInfo[paramKey] || '';
+                });
+                stream.write(command + '\n');
+            }
+            else if (msg.type === 'shortcut_execute') {
+                let command = msg.command;
+                const selectedHost = msg.selectedHost;
+                const originalHostKey = msg.originalHostKey;
+                command = command.replace(new RegExp(`\\{${originalHostKey}\\.([\\w]+)\\}`, 'g'), (match, paramKey) => {
+                    const hostInfo = hosts[selectedHost];
+                    if (!hostInfo) return match;
+                    return hostInfo[paramKey] || '';
+                });
                 stream.write(command + '\n');
             }
         } catch (e) {}

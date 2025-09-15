@@ -54,6 +54,7 @@
     <div id="connect-modal" class="modal-overlay"></div>
     <div id="hosts-editor-modal" class="modal-overlay"></div>
     <div id="shortcuts-editor-modal" class="modal-overlay"></div>
+    <div id="host-select-modal" class="modal-overlay"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
@@ -149,7 +150,41 @@
                 const onOpenLogic = () => { ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows })); loadShortcuts(ws, term, sessionId, hostName); };
                 ws.onopen = onOpenLogic;
                 if (ws.readyState === WebSocket.OPEN) onOpenLogic();
-                ws.onmessage = (event) => { try { const msg = JSON.parse(event.data); if(msg.type === 'error') { alert('Connection Failed: ' + msg.message); ws.close(); } } catch (e) { term.write(event.data); } };
+                ws.onmessage = (event) => { 
+                    try { 
+                        const msg = JSON.parse(event.data); 
+                        if(msg.type === 'error') { 
+                            alert('Error: ' + msg.message); 
+                        } else if (msg.type === 'request_host_selection') {
+                            const hostSelectModal = document.getElementById('host-select-modal');
+                            hostSelectModal.innerHTML = `
+                                <div class="modal-box">
+                                    <h2>Select a Host</h2>
+                                    <p>The shortcut requires a host selection:</p>
+                                    <select id="dynamic-host-select" class="form-control" style="width: 100%;">
+                                        ${msg.hosts.map(h => `<option value="${h}">${h}</option>`).join('')}
+                                    </select>
+                                    <div class="editor-buttons">
+                                        <button id="cancel-host-select" class="btn">Cancel</button>
+                                        <button id="confirm-host-select" class="btn btn-primary">Confirm</button>
+                                    </div>
+                                </div>
+                            `;
+                            hostSelectModal.classList.add('active');
+
+                            document.getElementById('confirm-host-select').onclick = () => {
+                                const selectedHost = document.getElementById('dynamic-host-select').value;
+                                ws.send(JSON.stringify({ type: 'shortcut_execute', command: msg.command, selectedHost: selectedHost, originalHostKey: msg.requiredHostKey }));
+                                hostSelectModal.classList.remove('active');
+                            };
+                            document.getElementById('cancel-host-select').onclick = () => {
+                                hostSelectModal.classList.remove('active');
+                            };
+                        }
+                    } catch (e) { 
+                        term.write(event.data); 
+                    } 
+                };
                 ws.onclose = () => closeTab(sessionId);
                 term.onData(data => ws.send(JSON.stringify({ type: 'data', data: data })));
                 renderTabs();

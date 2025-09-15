@@ -86,9 +86,14 @@ SSH-Mag 是一個基於 Node.js 和現代 Web 技術的 SSH 管理工具，它�
       {
         "name": "SSH to My VPS",
         "command": "ssh {My-VPS.username}@{My-VPS.host}"
+      },
+      {
+        "name": "Show Test Value",
+        "command": "echo {some_server.test_val}" 
       }
     ]
     ```
+    在上面的範例中，執行 "Show Test Value" 指令時，因為 `some_server` 不存在，系統會自動尋找並列出所有定義了 `test_val` 參數的主機讓您選擇。
 
 ## 🏃‍♂️ 執行應用
 
