@@ -153,6 +153,12 @@ function setupWebSocketListeners(ws, stream, sshConfig) {
             }
             else if (msg.type === 'shortcut_execute') {
                 let command = msg.command;
+                command = command.replace(/\{host\}/g, sshConfig.host || '');
+                command = command.replace(/\{username\}/g, sshConfig.username || '');
+                command = command.replace(/\{port\}/g, sshConfig.port || '22');
+                command = command.replace(/\{servername\}/g, sshConfig.servername || '');
+                command = command.replace(/\{wg_interface\}/g, sshConfig.wg_interface || 'wg1');
+                command = command.replace(/\{wg_subnet\}/g, sshConfig.wg_subnet || '10.21.12.1/24');
                 const selectedHost = msg.selectedHost;
                 const originalHostKey = msg.originalHostKey;
                 command = command.replace(new RegExp(`\\{${originalHostKey}\\.([\\w]+)\\}`, 'g'), (match, paramKey) => {
