@@ -141,6 +141,9 @@ function setupWebSocketListeners(ws, stream, sshConfig) {
                 command = command.replace(/\{host\}/g, sshConfig.host || '');
                 command = command.replace(/\{username\}/g, sshConfig.username || '');
                 command = command.replace(/\{port\}/g, sshConfig.port || '22');
+                command = command.replace(/\{servername\}/g, sshConfig.servername || '');
+                command = command.replace(/\{wg_interface\}/g, sshConfig.wg_interface || 'wg1');
+                command = command.replace(/\{wg_subnet\}/g, sshConfig.wg_subnet || '10.21.12.1/24');
                 command = command.replace(/\{([\w.-]+)\.([\w]+)\}/g, (match, hostKey, paramKey) => {
                     const hostInfo = hosts[hostKey];
                     if (!hostInfo) return match; 
