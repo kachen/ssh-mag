@@ -100,7 +100,7 @@ setInterval(() => {
             delete activeSessions[sessionId];
         }
     }
-}, 60 * 1000);
+}, 10 * 1000);
 
 function setupWebSocketListeners(ws, stream, sshConfig, sessionId) {
     const messageHandlers = {
@@ -299,7 +299,12 @@ server.on('upgrade', (request, socket, head) => {
         });
     }).on('error', (err) => rejectConnection(`SSH connection error: ${err.message}`));
     try {
-        const opts = { host: sshConfig.host, username: sshConfig.username, port: sshConfig.port || 22 };
+        const opts = {
+            host: sshConfig.host,
+            username: sshConfig.username,
+            port: sshConfig.port || 22,
+            keepaliveInterval: 10000 // Send a keepalive packet every 10 seconds
+        };
         if (sshConfig.password) opts.password = sshConfig.password;
         else if (sshConfig.privateKeyPath) opts.privateKey = fs.readFileSync(path.resolve(__dirname, sshConfig.privateKeyPath), 'utf8');
         else throw new Error('Authentication method (password or privateKeyPath) not provided.');
