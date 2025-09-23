@@ -65,13 +65,12 @@
             const loginModal = document.getElementById('login-modal');
             const appContainer = document.getElementById('app-container');
             const modals = { connect: document.getElementById('connect-modal'), hostsEditor: document.getElementById('hosts-editor-modal'), shortcutsEditor: document.getElementById('shortcuts-editor-modal') };
-            modals.connect.innerHTML = `<div class="modal-box"><h2>Select Host</h2><div class="message-area" id="connect-error-message"></div><div class="loading-spinner" id="connect-loading-spinner"></div><div><select id="server-select"></select><button id="connect-btn" class="btn btn-primary">Connect</button></div><div class="btn-group"><button id="edit-hosts-btn" class="btn">Edit Hosts</button><button id="edit-shortcuts-btn" class="btn">Edit Shortcuts</button><button id="logout-btn" class="btn">Logout</button></div></div>`;
+            modals.connect.innerHTML = `<div class="modal-box"><h2>Select Host</h2><p>Start typing to filter hosts.</p><div class="message-area" id="connect-error-message"></div><div class="loading-spinner" id="connect-loading-spinner"></div><div><input list="server-list" id="server-input" autocomplete="off" style="font-size: 1rem; padding: 0.5rem; width: calc(100% - 1rem - 110px); margin-right: 0.5rem; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333; box-sizing: border-box;"/><datalist id="server-list"></datalist><button id="connect-btn" class="btn btn-primary">Connect</button></div><div class="btn-group"><button id="edit-hosts-btn" class="btn">Edit Hosts</button><button id="edit-shortcuts-btn" class="btn">Edit Shortcuts</button><button id="logout-btn" class="btn">Logout</button></div></div>`;
             modals.hostsEditor.innerHTML = `<div class="modal-box"><h2>Edit Hosts (hosts.json)</h2><textarea id="hosts-textarea"></textarea><div class="editor-buttons"><button data-action="cancel-edit" class="btn">Cancel</button><button data-action="save-hosts" class="btn btn-primary">Save</button></div></div>`;
             modals.shortcutsEditor.innerHTML = `<div class="modal-box"><h2>Edit Shortcuts (shortcuts.json)</h2><textarea id="shortcuts-textarea"></textarea><div class="editor-buttons"><button data-action="cancel-edit" class="btn">Cancel</button><button data-action="save-shortcuts" class="btn btn-primary">Save</button></div></div>`;
 
             const tabBar = document.getElementById('tab-bar');
             const terminalPanes = document.getElementById('terminal-panes');
-            const serverSelect = document.getElementById('server-select');
             const connectBtn = document.getElementById('connect-btn');
             const connectErrorMessage = document.getElementById('connect-error-message');
             const connectLoadingSpinner = document.getElementById('connect-loading-spinner');
@@ -160,10 +159,11 @@
                             hostSelectModal.innerHTML = `
                                 <div class="modal-box">
                                     <h2>Select a Host</h2>
-                                    <p>The shortcut requires a host selection:</p>
-                                    <select id="dynamic-host-select" class="form-control" style="width: 100%;">
-                                        ${msg.hosts.map(h => `<option value="${h}">${h}</option>`).join('')}
-                                    </select>
+                                    <p>The shortcut requires a host selection. Start typing to filter.</p>
+                                    <input list="dynamic-host-list" id="dynamic-host-input" style="width: 100%; padding: 8px; box-sizing: border-box; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333;" autocomplete="off" />
+                                    <datalist id="dynamic-host-list">
+                                        ${msg.hosts.map(h => `<option value="${h}"></option>`).join('')}
+                                    </datalist>
                                     <div class="editor-buttons">
                                         <button id="cancel-host-select" class="btn">Cancel</button>
                                         <button id="confirm-host-select" class="btn btn-primary">Confirm</button>
@@ -171,9 +171,10 @@
                                 </div>
                             `;
                             hostSelectModal.classList.add('active');
+                            document.getElementById('dynamic-host-input').focus();
 
                             document.getElementById('confirm-host-select').onclick = () => {
-                                const selectedHost = document.getElementById('dynamic-host-select').value;
+                                const selectedHost = document.getElementById('dynamic-host-input').value;
                                 ws.send(JSON.stringify({ type: 'shortcut_execute', command: msg.command, selectedHost: selectedHost, originalHostKey: msg.requiredHostKey }));
                                 hostSelectModal.classList.remove('active');
                             };
@@ -226,13 +227,20 @@
             }
 
             function populateServerList() {
-                const serverSelect = document.getElementById('server-select'); // Get element here
+                const serverInput = document.getElementById('server-input');
+                const serverList = document.getElementById('server-list');
+                if (!serverInput || !serverList) return;
+
                 fetchWithAuth('/api/servers').then(r => r.json()).then(servers => {
-                    serverSelect.innerHTML = '';
-                    servers.forEach(s => serverSelect.add(new Option(s.name, s.name)));
+                    serverList.innerHTML = '';
+                    servers.forEach(s => {
+                        const option = document.createElement('option');
+                        option.value = s.name;
+                        serverList.appendChild(option);
+                    });
                     const lastSelectedHost = localStorage.getItem('lastSelectedHost');
                     if (lastSelectedHost) {
-                        serverSelect.value = lastSelectedHost;
+                        serverInput.value = lastSelectedHost;
                     }
                 }).catch(err => {
                     console.error('Failed to populate server list:', err);
@@ -282,17 +290,17 @@
             // --- Event Listeners ---
             newTabBtn.addEventListener('click', () => { populateServerList(); showModal('connect'); });
             document.getElementById('connect-btn').addEventListener('click', () => {
-                const serverName = document.getElementById('server-select').value;
+                const serverName = document.getElementById('server-input').value;
                 if (serverName === '') return;
                 const connectErrorMessage = document.getElementById('connect-error-message');
                 const connectLoadingSpinner = document.getElementById('connect-loading-spinner');
                 const connectBtn = document.getElementById('connect-btn');
-                const serverSelect = document.getElementById('server-select');
+                const serverInput = document.getElementById('server-input');
 
                 connectErrorMessage.textContent = '';
                 connectLoadingSpinner.style.display = 'block';
                 connectBtn.disabled = true;
-                serverSelect.disabled = true;
+                serverInput.disabled = true;
 
                 localStorage.setItem('lastSelectedHost', serverName);
                 
@@ -312,13 +320,13 @@
                             activateTab(msg.sessionId);
                             connectLoadingSpinner.style.display = 'none';
                             connectBtn.disabled = false;
-                            serverSelect.disabled = false;
+                            serverInput.disabled = false;
                             showModal(null);
                         } else if (msg.type === 'error') {
                             connectErrorMessage.textContent = msg.message;
                             connectLoadingSpinner.style.display = 'none';
                             connectBtn.disabled = false;
-                            serverSelect.disabled = false;
+                            serverInput.disabled = false;
                             ws.close();
                         }
                     } catch (e) { /* Ignore */ }
@@ -327,7 +335,7 @@
                     if (modals.connect.classList.contains('active')) {
                         connectLoadingSpinner.style.display = 'none';
                         connectBtn.disabled = false;
-                        serverSelect.disabled = false;
+                        serverInput.disabled = false;
                     }
                 };
             });
