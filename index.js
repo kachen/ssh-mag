@@ -102,8 +102,76 @@ setInterval(() => {
     }
 }, 60 * 1000);
 
-function setupWebSocketListeners(ws, stream, sshConfig) {
+function setupWebSocketListeners(ws, stream, sshConfig, sessionId) {
+    const messageHandlers = {
+        'data': (msg) => stream.write(msg.data),
+        'resize': (msg) => stream.setWindow(msg.rows, msg.cols),
+        'shortcut': (msg) => {
+            const match = msg.command.match(/\{([\w.-]+)\.([\w]+)\}/);
+            if (match) {
+                const requiredHostKey = match[1];
+                const paramKey = match[2];
+
+                if (!hosts[requiredHostKey]) {
+                    const possibleHosts = Object.keys(hosts).filter(hostName =>
+                        hosts[hostName].hasOwnProperty(paramKey)
+                    );
+
+                    if (possibleHosts.length > 0) {
+                        ws.send(JSON.stringify({
+                            type: 'request_host_selection',
+                            command: msg.command,
+                            hosts: possibleHosts,
+                            requiredHostKey: requiredHostKey
+                        }));
+                        return;
+                    } else {
+                        ws.send(JSON.stringify({
+                            type: 'error',
+                            message: `Shortcut error: No host found with the parameter '${paramKey}'.`
+                        }));
+                        return;
+                    }
+                }
+            }
+
+            let command = msg.command;
+            command = command.replace(/\{host\}/g, sshConfig.host || '');
+            command = command.replace(/\{username\}/g, sshConfig.username || '');
+            command = command.replace(/\{port\}/g, sshConfig.port || '22');
+            command = command.replace(/\{servername\}/g, sshConfig.servername || '');
+            command = command.replace(/\{wg_interface\}/g, sshConfig.wg_interface || 'wg1');
+            command = command.replace(/\{wg_subnet\}/g, sshConfig.wg_subnet || '10.21.12.1/24');
+            command = command.replace(/\{([\w.-]+)\.([\w]+)\}/g, (match, hostKey, paramKey) => {
+                const hostInfo = hosts[hostKey];
+                if (!hostInfo) return match;
+                return hostInfo[paramKey] || '';
+            });
+            stream.write(command + '\n');
+        },
+        'shortcut_execute': (msg) => {
+            let command = msg.command;
+            command = command.replace(/\{host\}/g, sshConfig.host || '');
+            command = command.replace(/\{username\}/g, sshConfig.username || '');
+            command = command.replace(/\{port\}/g, sshConfig.port || '22');
+            command = command.replace(/\{servername\}/g, sshConfig.servername || '');
+            command = command.replace(/\{wg_interface\}/g, sshConfig.wg_interface || 'wg1');
+            command = command.replace(/\{wg_subnet\}/g, sshConfig.wg_subnet || '10.21.12.1/24');
+            const selectedHost = msg.selectedHost;
+            const originalHostKey = msg.originalHostKey;
+            command = command.replace(new RegExp(`\\{${originalHostKey}\\.([\\w]+)\\}`, 'g'), (match, paramKey) => {
+                const hostInfo = hosts[selectedHost];
+                if (!hostInfo) return match;
+                return hostInfo[paramKey] || '';
+            });
+            stream.write(command + '\n');
+        }
+    };
+
     function onMessage(raw) {
+        if (activeSessions[sessionId]) {
+            activeSessions[sessionId].lastSeen = Date.now();
+        }
         try {
             const msg = JSON.parse(raw);
             if (msg.type === 'data') stream.write(msg.data);
@@ -168,9 +236,15 @@ function setupWebSocketListeners(ws, stream, sshConfig) {
                 });
                 stream.write(command + '\n');
             }
+            if (messageHandlers[msg.type]) messageHandlersmsg.type;
         } catch (e) {}
     }
-    function onData(data) { ws.send(data.toString('utf-8')); }
+    function onData(data) {
+        if (activeSessions[sessionId]) {
+            activeSessions[sessionId].lastSeen = Date.now();
+        }
+        ws.send(data.toString('utf-8'));
+    }
     stream.on('data', onData);
     ws.on('message', onMessage);
     ws.on('close', () => stream.removeListener('data', onData));
@@ -200,7 +274,7 @@ server.on('upgrade', (request, socket, head) => {
         if (session) {
             wss.handleUpgrade(request, socket, head, (ws) => {
                 session.lastSeen = Date.now();
-                setupWebSocketListeners(ws, session.stream, hosts[session.serverName]);
+                setupWebSocketListeners(ws, session.stream, hosts[session.serverName], query.sessionId);
             });
         } else { rejectConnection('Invalid session ID. The server may have restarted.'); }
         return;
@@ -219,7 +293,7 @@ server.on('upgrade', (request, socket, head) => {
             wss.handleUpgrade(request, socket, head, (ws) => {
                 ws.send(JSON.stringify({ type: 'session', sessionId }));
                 ws.send(`\r\n*** SSH to ${serverName} Established ***\r\n`);
-                setupWebSocketListeners(ws, stream, sshConfig);
+                setupWebSocketListeners(ws, stream, sshConfig, sessionId);
                 stream.on('close', () => { delete activeSessions[sessionId]; ws.close(); });
             });
         });
