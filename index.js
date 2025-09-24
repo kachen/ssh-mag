@@ -12,6 +12,7 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
 const PORT = process.env.PORT || 3000;
+const BIND_IP = process.env.BIND_IP || '127.0.0.1';
 const HOSTS_PATH = path.resolve(__dirname, 'hosts.json');
 const SHORTCUTS_PATH = path.resolve(__dirname, 'shortcuts.json');
 const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
@@ -168,20 +169,20 @@ function setupWebSocketListeners(ws, stream, sshConfig, sessionId) {
         }
     };
 
-    function onMessage(raw) {
+    function onMessage(raw, isBinary) {
         if (activeSessions[sessionId]) {
             activeSessions[sessionId].lastSeen = Date.now();
         }
-        try {
-            // This is a control message (e.g., resize, shortcut), so parse it as JSON.
-            const msg = JSON.parse(raw);
-            if (msg.type){
-                if (messageHandlers[msg.type]) messageHandlers[msg.type](msg);
-            }else{
-                stream.write(raw);
-            }
-        } catch (e) {
+        if (isBinary){
             stream.write(raw);
+        } else {
+            try {
+                // This is a control message (e.g., resize, shortcut), so parse it as JSON.
+                const msg = JSON.parse(raw);
+                if (msg.type){
+                    if (messageHandlers[msg.type]) messageHandlers[msg.type](msg);
+                }
+            } catch (e) {}
         }
     }
     function onData(data) {
@@ -273,4 +274,4 @@ server.on('upgrade', (request, socket, head) => {
     } catch (error) { rejectConnection(`SSH setup error: ${error.message}`); }
 });
 
-server.listen(PORT, () => console.log(`Server on http://localhost:${PORT}`));
+server.listen(PORT, BIND_IP, () => console.log(`Server on http://localhost:${PORT}`));
