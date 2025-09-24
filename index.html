@@ -128,7 +128,14 @@
                 document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.sessionId === sessionId));
                 document.querySelectorAll('.terminal-pane').forEach(p => p.classList.toggle('active', p.dataset.sessionId === sessionId));
                 const termInfo = terminals[sessionId];
-                if (termInfo) { setTimeout(() => termInfo.fitAddon.fit(), 0); termInfo.term.focus(); }
+                if (termInfo) { 
+                    setTimeout(() => {
+                        termInfo.fitAddon.fit(); 
+                        // After fitting, the dimensions are accurate. Send them to the backend PTY.
+                        // This corrects any initial size mismatch and fixes line wrapping issues.
+                        termInfo.ws.send(JSON.stringify({ type: 'resize', cols: termInfo.term.cols, rows: termInfo.term.rows }));
+                    }, 0); 
+                    termInfo.term.focus(); }
             }
 
             function createTerminal(session, ws) {
@@ -149,42 +156,48 @@
                 const onOpenLogic = () => { ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows })); loadShortcuts(ws, term, sessionId, hostName); };
                 ws.onopen = onOpenLogic;
                 if (ws.readyState === WebSocket.OPEN) onOpenLogic();
-                ws.onmessage = (event) => { 
-                    try { 
-                        const msg = JSON.parse(event.data); 
-                        if(msg.type === 'error') { 
-                            alert('Error: ' + msg.message); 
-                        } else if (msg.type === 'request_host_selection') {
-                            const hostSelectModal = document.getElementById('host-select-modal');
-                            hostSelectModal.innerHTML = `
-                                <div class="modal-box">
-                                    <h2>Select a Host</h2>
-                                    <p>The shortcut requires a host selection. Start typing to filter.</p>
-                                    <input list="dynamic-host-list" id="dynamic-host-input" style="width: 100%; padding: 8px; box-sizing: border-box; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333;" autocomplete="off" />
-                                    <datalist id="dynamic-host-list">
-                                        ${msg.hosts.map(h => `<option value="${h}"></option>`).join('')}
-                                    </datalist>
-                                    <div class="editor-buttons">
-                                        <button id="cancel-host-select" class="btn">Cancel</button>
-                                        <button id="confirm-host-select" class="btn btn-primary">Confirm</button>
+                ws.onmessage = (event) => {
+                    try {
+                        if (event.data instanceof ArrayBuffer) {
+                            // This is raw terminal data from the SSH stream.
+                            // xterm.js requires a Uint8Array for binary data.
+                            term.write(new Uint8Array(event.data));
+                        } else {
+                            const msg = JSON.parse(event.data);
+                            if(msg.type === 'error') { 
+                                    alert('Error: ' + msg.message);
+                                } else if (msg.type === 'request_host_selection') {
+                                const hostSelectModal = document.getElementById('host-select-modal');
+                                hostSelectModal.innerHTML = `
+                                    <div class="modal-box">
+                                        <h2>Select a Host</h2>
+                                        <p>The shortcut requires a host selection. Start typing to filter.</p>
+                                        <input list="dynamic-host-list" id="dynamic-host-input" style="width: 100%; padding: 8px; box-sizing: border-box; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333;" autocomplete="off" />
+                                        <datalist id="dynamic-host-list">
+                                            ${msg.hosts.map(h => `<option value="${h}"></option>`).join('')}
+                                        </datalist>
+                                        <div class="editor-buttons">
+                                            <button id="cancel-host-select" class="btn">Cancel</button>
+                                            <button id="confirm-host-select" class="btn btn-primary">Confirm</button>
+                                        </div>
                                     </div>
-                                </div>
-                            `;
-                            hostSelectModal.classList.add('active');
-                            document.getElementById('dynamic-host-input').focus();
+                                `;
+                                hostSelectModal.classList.add('active');
+                                document.getElementById('dynamic-host-input').focus();
 
-                            document.getElementById('confirm-host-select').onclick = () => {
-                                const selectedHost = document.getElementById('dynamic-host-input').value;
-                                ws.send(JSON.stringify({ type: 'shortcut_execute', command: msg.command, selectedHost: selectedHost, originalHostKey: msg.requiredHostKey }));
-                                hostSelectModal.classList.remove('active');
-                            };
-                            document.getElementById('cancel-host-select').onclick = () => {
-                                hostSelectModal.classList.remove('active');
-                            };
+                                document.getElementById('confirm-host-select').onclick = () => {
+                                    const selectedHost = document.getElementById('dynamic-host-input').value;
+                                    ws.send(JSON.stringify({ type: 'shortcut_execute', command: msg.command, selectedHost: selectedHost, originalHostKey: msg.requiredHostKey }));
+                                    hostSelectModal.classList.remove('active');
+                                };
+                                document.getElementById('cancel-host-select').onclick = () => {
+                                    hostSelectModal.classList.remove('active');
+                                };
+                            }
                         }
-                    } catch (e) { 
-                        term.write(event.data); 
-                    } 
+                    } catch (e) {
+                        term.write(event.data);
+                    }
                 };
                 ws.onclose = () => closeTab(sessionId);
                 term.onData(data => ws.send(JSON.stringify({ type: 'data', data: data })));
@@ -277,6 +290,7 @@
                     sessions.forEach(session => {
                         const token = localStorage.getItem('authToken');
                         const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ssh?sessionId=${session.sessionId}&token=${token}`);
+                        ws.binaryType = 'arraybuffer'; // Ensure binary data is received as ArrayBuffer
                         createTerminal(session, ws);
                     });
                     const activeSession = sessions.find(s => s.isActive);
@@ -306,6 +320,7 @@
                 
                 const token = localStorage.getItem('authToken');
                 const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ssh?server=${serverName}&token=${token}`);
+                ws.binaryType = 'arraybuffer'; // Ensure binary data is received as ArrayBuffer
                 
                 ws.onmessage = (event) => {
                     try {

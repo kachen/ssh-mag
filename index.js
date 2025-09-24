@@ -243,7 +243,11 @@ function setupWebSocketListeners(ws, stream, sshConfig, sessionId) {
         if (activeSessions[sessionId]) {
             activeSessions[sessionId].lastSeen = Date.now();
         }
-        ws.send(data.toString('utf-8'));
+        // Send the raw buffer directly. xterm.js on the client-side
+        // is designed to handle binary data (ArrayBuffer/Blob) which it
+        // receives when the server sends a Buffer. Sending a string can
+        // cause subtle rendering issues with certain character sequences.
+        ws.send(data);
     }
     stream.on('data', onData);
     ws.on('message', onMessage);
@@ -254,7 +258,10 @@ server.on('upgrade', (request, socket, head) => {
     const { pathname, query } = url.parse(request.url, true);
     if (pathname !== '/ssh') return socket.destroy();
 
+    let upgradeHandled = false;
     const rejectConnection = (message) => {
+        if (upgradeHandled) return;
+        upgradeHandled = true;
         wss.handleUpgrade(request, socket, head, (ws) => {
             ws.send(JSON.stringify({ type: 'error', message }));
             ws.terminate();
@@ -272,6 +279,8 @@ server.on('upgrade', (request, socket, head) => {
     if (query.sessionId) {
         const session = activeSessions[query.sessionId];
         if (session) {
+            if (upgradeHandled) return;
+            upgradeHandled = true;
             wss.handleUpgrade(request, socket, head, (ws) => {
                 session.lastSeen = Date.now();
                 setupWebSocketListeners(ws, session.stream, hosts[session.serverName], query.sessionId);
@@ -286,11 +295,19 @@ server.on('upgrade', (request, socket, head) => {
     const sshConfig = hosts[serverName];
     const conn = new Client();
     conn.on('ready', () => {
-        conn.shell((err, stream) => {
+        // Explicitly enable echo in the pseudo-terminal (PTY) modes.
+        // This ensures the remote shell echoes back typed characters,
+        // which is the standard behavior terminals rely on.
+        conn.shell({
+            modes: { echo: true }
+        }, (err, stream) => {
             if (err) { conn.end(); return rejectConnection(`Shell failed: ${err.message}`); }
             const sessionId = uuidv4();
+            if (upgradeHandled) return; // Connection might have been rejected already
+            upgradeHandled = true;
             activeSessions[sessionId] = { conn, stream, lastSeen: Date.now(), serverName };
             wss.handleUpgrade(request, socket, head, (ws) => {
+                // This is the successful upgrade path
                 ws.send(JSON.stringify({ type: 'session', sessionId }));
                 ws.send(`\r\n*** SSH to ${serverName} Established ***\r\n`);
                 setupWebSocketListeners(ws, stream, sshConfig, sessionId);
