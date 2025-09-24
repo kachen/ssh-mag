@@ -173,71 +173,16 @@ function setupWebSocketListeners(ws, stream, sshConfig, sessionId) {
             activeSessions[sessionId].lastSeen = Date.now();
         }
         try {
+            // This is a control message (e.g., resize, shortcut), so parse it as JSON.
             const msg = JSON.parse(raw);
-            if (msg.type === 'data') stream.write(msg.data);
-            else if (msg.type === 'resize') stream.setWindow(msg.rows, msg.cols);
-            else if (msg.type === 'shortcut') {
-                const match = msg.command.match(/\{([\w.-]+)\.([\w]+)\}/);
-                if (match) {
-                    const requiredHostKey = match[1];
-                    const paramKey = match[2];
-
-                    if (!hosts[requiredHostKey]) {
-                        const possibleHosts = Object.keys(hosts).filter(hostName => 
-                            hosts[hostName].hasOwnProperty(paramKey)
-                        );
-
-                        if (possibleHosts.length > 0) {
-                            ws.send(JSON.stringify({
-                                type: 'request_host_selection',
-                                command: msg.command,
-                                hosts: possibleHosts,
-                                requiredHostKey: requiredHostKey
-                            }));
-                            return;
-                        } else {
-                            ws.send(JSON.stringify({
-                                type: 'error',
-                                message: `Shortcut error: No host found with the parameter '${paramKey}'.`
-                            }));
-                            return;
-                        }
-                    }
-                }
-
-                let command = msg.command;
-                command = command.replace(/\{host\}/g, sshConfig.host || '');
-                command = command.replace(/\{username\}/g, sshConfig.username || '');
-                command = command.replace(/\{port\}/g, sshConfig.port || '22');
-                command = command.replace(/\{servername\}/g, sshConfig.servername || '');
-                command = command.replace(/\{wg_interface\}/g, sshConfig.wg_interface || 'wg1');
-                command = command.replace(/\{wg_subnet\}/g, sshConfig.wg_subnet || '10.21.12.1/24');
-                command = command.replace(/\{([\w.-]+)\.([\w]+)\}/g, (match, hostKey, paramKey) => {
-                    const hostInfo = hosts[hostKey];
-                    if (!hostInfo) return match; 
-                    return hostInfo[paramKey] || '';
-                });
-                stream.write(command + '\n');
+            if (msg.type){
+                if (messageHandlers[msg.type]) messageHandlers[msg.type](msg);
+            }else{
+                stream.write(raw);
             }
-            else if (msg.type === 'shortcut_execute') {
-                let command = msg.command;
-                command = command.replace(/\{host\}/g, sshConfig.host || '');
-                command = command.replace(/\{username\}/g, sshConfig.username || '');
-                command = command.replace(/\{port\}/g, sshConfig.port || '22');
-                command = command.replace(/\{servername\}/g, sshConfig.servername || '');
-                command = command.replace(/\{wg_interface\}/g, sshConfig.wg_interface || 'wg1');
-                command = command.replace(/\{wg_subnet\}/g, sshConfig.wg_subnet || '10.21.12.1/24');
-                const selectedHost = msg.selectedHost;
-                const originalHostKey = msg.originalHostKey;
-                command = command.replace(new RegExp(`\\{${originalHostKey}\\.([\\w]+)\\}`, 'g'), (match, paramKey) => {
-                    const hostInfo = hosts[selectedHost];
-                    if (!hostInfo) return match;
-                    return hostInfo[paramKey] || '';
-                });
-                stream.write(command + '\n');
-            }
-            if (messageHandlers[msg.type]) messageHandlersmsg.type;
-        } catch (e) {}
+        } catch (e) {
+            stream.write(raw);
+        }
     }
     function onData(data) {
         if (activeSessions[sessionId]) {
@@ -309,7 +254,6 @@ server.on('upgrade', (request, socket, head) => {
             wss.handleUpgrade(request, socket, head, (ws) => {
                 // This is the successful upgrade path
                 ws.send(JSON.stringify({ type: 'session', sessionId }));
-                ws.send(`\r\n*** SSH to ${serverName} Established ***\r\n`);
                 setupWebSocketListeners(ws, stream, sshConfig, sessionId);
                 stream.on('close', () => { delete activeSessions[sessionId]; ws.close(); });
             });

@@ -151,11 +151,9 @@
                 term.loadAddon(fitAddon); term.loadAddon(serializeAddon);
                 term.open(pane.querySelector('.xterm-container'));
                 if (content) term.write(content);
-                window.addEventListener('resize', () => fitAddon.fit());
+                window.addEventListener('resize', () => {fitAddon.fit(); ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));});
                 terminals[sessionId] = { term, serializeAddon, ws, pane, fitAddon };
-                const onOpenLogic = () => { ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows })); loadShortcuts(ws, term, sessionId, hostName); };
-                ws.onopen = onOpenLogic;
-                if (ws.readyState === WebSocket.OPEN) onOpenLogic();
+                loadShortcuts(ws, term, sessionId, hostName);
                 ws.onmessage = (event) => {
                     try {
                         if (event.data instanceof ArrayBuffer) {
@@ -200,7 +198,13 @@
                     }
                 };
                 ws.onclose = () => closeTab(sessionId);
-                term.onData(data => ws.send(JSON.stringify({ type: 'data', data: data })));
+                // When user types, convert the string to a Uint8Array and send as binary.
+                // This is more efficient than JSON stringifying every keystroke.
+                const textEncoder = new TextEncoder();
+                term.onData(data => {
+                    // The backend will receive this as a raw Buffer.
+                    ws.send(textEncoder.encode(data));
+                });
                 renderTabs();
             }
             
