@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 3000;
 const BIND_IP = process.env.BIND_IP || '127.0.0.1';
 const HOSTS_PATH = path.resolve(__dirname, 'hosts.json');
 const SHORTCUTS_PATH = path.resolve(__dirname, 'shortcuts.json');
-const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 const USERS_PATH = path.resolve(__dirname, 'users.json');
 
 app.use(express.json());
