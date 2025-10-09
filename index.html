@@ -11,10 +11,16 @@
         #terminal-panes { flex-grow: 1; position: relative; }
         .terminal-pane { display: none; flex-direction: column; width: 100%; height: 100%; }
         .terminal-pane.active { display: flex; }
-        .shortcuts-bar { height: var(--bar-height); padding: 0 4px; background-color: var(--tab-bg); flex-shrink: 0; display: flex; align-items: center; }
+        .shortcuts-bar-container { display: flex; align-items: center; height: var(--bar-height); background-color: var(--tab-bg); flex-shrink: 0; }
+        .shortcuts-bar { display: flex; align-items: center; overflow: hidden; scroll-behavior: smooth; flex-grow: 1; height: 100%; }
         .xterm-container { flex-grow: 1; position: relative; }
         .xterm-container .terminal, .xterm-container .xterm-viewport { width: 100% !important; height: 100% !important; }
-        .shortcuts-bar .btn { padding: 2px 8px; font-size: 0.8rem; }
+        .shortcuts-bar .btn { padding: 2px 4px; margin: 2px; font-size: 0.8rem; flex-shrink: 0; }
+        .shortcuts-bar-container .scroll-btn { background-color: var(--tab-bg); color: #ccc; border: none; cursor: pointer; padding: 0 8px; height: 100%; font-size: 1rem; line-height: var(--bar-height); }
+        .shortcuts-bar-container .scroll-btn:hover { background-color: #4f4f4f; }
+        .shortcuts-bar-container .scroll-btn:disabled { opacity: 0.2; cursor: default; }
+        .shortcuts-bar-container .scroll-btn.left { border-right: 1px solid var(--border-color); }
+        .shortcuts-bar-container .scroll-btn.right { border-left: 1px solid var(--border-color); }
         .tab { display: flex; align-items: center; padding: 0 15px; height: 100%; border-right: 1px solid var(--border-color); cursor: pointer; }
         .tab.active { background-color: var(--tab-active-bg); }
         .tab-close { margin-left: 10px; padding: 2px 5px; border-radius: 4px; }
@@ -143,7 +149,14 @@
                 const pane = document.createElement('div');
                 pane.className = 'terminal-pane';
                 pane.dataset.sessionId = sessionId;
-                pane.innerHTML = `<div id="shortcuts-bar-${sessionId}" class="shortcuts-bar"></div><div class="xterm-container"></div>`;
+                pane.innerHTML = `
+                    <div class="shortcuts-bar-container">
+                        <button class="scroll-btn left" data-session-id="${sessionId}" style="display: none;">&lt;</button>
+                        <div id="shortcuts-bar-${sessionId}" class="shortcuts-bar"></div>
+                        <button class="scroll-btn right" data-session-id="${sessionId}" style="display: none;">&gt;</button>
+                    </div>
+                    <div class="xterm-container"></div>
+                `;
                 terminalPanes.appendChild(pane);
                 const term = new Terminal({ cursorBlink: true, convertEol: true });
                 const fitAddon = new FitAddon.FitAddon();
@@ -211,21 +224,46 @@
             }
             
             function loadShortcuts(ws, term, sessionId, hostName) {
-                const bar = document.getElementById(`shortcuts-bar-${sessionId}`);
-                if (!bar) return;
-                bar.innerHTML = '';
+                const shortcutsBar = document.getElementById(`shortcuts-bar-${sessionId}`);
+                if (!shortcutsBar) return;
+                shortcutsBar.innerHTML = '';
+
+                const scrollLeftBtn = document.querySelector(`.scroll-btn.left[data-session-id="${sessionId}"]`);
+                const scrollRightBtn = document.querySelector(`.scroll-btn.right[data-session-id="${sessionId}"]`);
+
+                const updateScrollButtons = () => {
+                    const { scrollLeft, scrollWidth, clientWidth } = shortcutsBar;
+                    const isScrollable = scrollWidth > clientWidth;
+                    scrollLeftBtn.style.display = isScrollable ? 'block' : 'none';
+                    scrollRightBtn.style.display = isScrollable ? 'block' : 'none';
+                    if (isScrollable) {
+                        scrollLeftBtn.disabled = scrollLeft <= 0;
+                        scrollRightBtn.disabled = scrollLeft >= (scrollWidth - clientWidth - 1); // -1 for precision
+                    }
+                };
+
+                scrollLeftBtn.onclick = () => { shortcutsBar.scrollBy({ left: -200 }); };
+                scrollRightBtn.onclick = () => { shortcutsBar.scrollBy({ left: 200 }); };
+                shortcutsBar.onscroll = updateScrollButtons;
+
                 fetchWithAuth('/api/shortcuts').then(r => r.json()).then(shortcuts => {
                     if (!Array.isArray(shortcuts)) return;
                     const filtered = shortcuts.filter(sc => {
                         return !sc.for || (Array.isArray(sc.for) && sc.for.includes(hostName));
                     });
-                    if (filtered.length === 0) return;
+                    
                     filtered.forEach((sc) => {
                         const btn = document.createElement('button');
                         btn.className = 'btn'; btn.textContent = sc.name;
                         btn.onclick = () => { ws.send(JSON.stringify({ type: 'shortcut', command: sc.command })); term.focus(); };
-                        bar.appendChild(btn);
+                        shortcutsBar.appendChild(btn);
                     });
+
+                    // Use a ResizeObserver to detect when the bar's content changes size
+                    const resizeObserver = new ResizeObserver(updateScrollButtons);
+                    resizeObserver.observe(shortcutsBar);
+                    // Also check on window resize
+                    window.addEventListener('resize', updateScrollButtons);
                 }).catch(console.error);
             }
 
