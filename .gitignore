@@ -1,5 +1,6 @@
 node_modules/
 hosts.json
 shortcuts.json
+batch_shortcuts.json
 users.json
 .env
