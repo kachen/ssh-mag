@@ -15,6 +15,7 @@ const PORT = process.env.PORT || 3000;
 const BIND_IP = process.env.BIND_IP || '127.0.0.1';
 const HOSTS_PATH = path.resolve(__dirname, 'hosts.json');
 const SHORTCUTS_PATH = path.resolve(__dirname, 'shortcuts.json');
+const BATCH_SHORTCUTS_PATH = path.resolve(__dirname, 'batch_shortcuts.json');
 const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 const USERS_PATH = path.resolve(__dirname, 'users.json');
 
@@ -56,30 +57,30 @@ let users = [];
 const activeSessions = {};
 
 function loadHostsConfig() {
-  try {
-    hosts = JSON.parse(fs.readFileSync(HOSTS_PATH, 'utf8'));
-    if (typeof hosts !== 'object' || hosts === null || Array.isArray(hosts)) {
-        throw new Error('hosts.json must be an object.');
+    try {
+        hosts = JSON.parse(fs.readFileSync(HOSTS_PATH, 'utf8'));
+        if (typeof hosts !== 'object' || hosts === null || Array.isArray(hosts)) {
+            throw new Error('hosts.json must be an object.');
+        }
+        console.log('Host configuration loaded.');
+    } catch (error) {
+        console.error('FATAL: Error with hosts.json:', error.message);
+        if (require.main === module) process.exit(1);
     }
-    console.log('Host configuration loaded.');
-  } catch (error) {
-    console.error('FATAL: Error with hosts.json:', error.message);
-    if (require.main === module) process.exit(1);
-  }
 }
 loadHostsConfig();
 
 function loadUsersConfig() {
-  try {
-    users = JSON.parse(fs.readFileSync(USERS_PATH, 'utf8'));
-    if (!Array.isArray(users)) {
-        throw new Error('users.json must be an array.');
+    try {
+        users = JSON.parse(fs.readFileSync(USERS_PATH, 'utf8'));
+        if (!Array.isArray(users)) {
+            throw new Error('users.json must be an array.');
+        }
+        console.log('User configuration loaded.');
+    } catch (error) {
+        console.error('FATAL: Error with users.json:', error.message);
+        if (require.main === module) process.exit(1);
     }
-    console.log('User configuration loaded.');
-  } catch (error) {
-    console.error('FATAL: Error with users.json:', error.message);
-    if (require.main === module) process.exit(1);
-  }
 }
 loadUsersConfig();
 
@@ -87,10 +88,68 @@ loadUsersConfig();
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/api/servers', authenticateToken, (req, res) => res.json(Object.keys(hosts).map(name => ({ name }))));
 app.get('/api/hosts-config', authenticateToken, (req, res) => { fs.readFile(HOSTS_PATH, 'utf8', (err, data) => { if (err) { if (err.code === 'ENOENT') return res.json({ config: '{}\n' }); return res.status(500).json({ error: 'Could not read hosts file.' }); } res.json({ config: data }); }); });
-app.post('/api/hosts-config', authenticateToken, (req, res) => { const { config } = req.body; try { JSON.parse(config); } catch (e) { return res.status(400).json({ error: 'Invalid JSON' }); } fs.writeFile(HOSTS_PATH, config, 'utf8', (err) => { if (err) return res.status(500).json({error: 'Could not write to hosts file.'}); loadHostsConfig(); res.json({success: true}); }); });
+app.post('/api/hosts-config', authenticateToken, (req, res) => { const { config } = req.body; try { JSON.parse(config); } catch (e) { return res.status(400).json({ error: 'Invalid JSON' }); } fs.writeFile(HOSTS_PATH, config, 'utf8', (err) => { if (err) return res.status(500).json({ error: 'Could not write to hosts file.' }); loadHostsConfig(); res.json({ success: true }); }); });
 app.get('/api/shortcuts', authenticateToken, (req, res) => { fs.readFile(SHORTCUTS_PATH, 'utf8', (err, data) => { if (err) { if (err.code === 'ENOENT') return res.json([]); return res.status(500).json({ error: 'Could not read shortcuts file.' }); } try { res.json(JSON.parse(data)); } catch (e) { res.status(500).json({ error: 'Error parsing shortcuts.json.' }); } }); });
 app.get('/api/shortcuts-config', authenticateToken, (req, res) => { fs.readFile(SHORTCUTS_PATH, 'utf8', (err, data) => { if (err) { if (err.code === 'ENOENT') return res.json({ config: '[]' }); return res.status(500).json({ error: 'Could not read shortcuts file.' }); } res.json({ config: data }); }); });
-app.post('/api/shortcuts-config', authenticateToken, (req, res) => { const { config } = req.body; try { JSON.parse(config); } catch (e) { return res.status(400).json({ error: 'Invalid JSON' }); } fs.writeFile(SHORTCUTS_PATH, config, 'utf8', (err) => { if (err) return res.status(500).json({error: 'Could not write to shortcuts file.'}); res.json({success: true}); }); });
+app.post('/api/shortcuts-config', authenticateToken, (req, res) => { const { config } = req.body; try { JSON.parse(config); } catch (e) { return res.status(400).json({ error: 'Invalid JSON' }); } fs.writeFile(SHORTCUTS_PATH, config, 'utf8', (err) => { if (err) return res.status(500).json({ error: 'Could not write to shortcuts file.' }); res.json({ success: true }); }); });
+app.get('/api/batch-shortcuts', authenticateToken, (req, res) => { fs.readFile(BATCH_SHORTCUTS_PATH, 'utf8', (err, data) => { if (err) { if (err.code === 'ENOENT') return res.json([]); return res.status(500).json({ error: 'Could not read batch shortcuts file.' }); } try { res.json(JSON.parse(data)); } catch (e) { res.status(500).json({ error: 'Error parsing batch_shortcuts.json.' }); } }); });
+app.get('/api/batch-shortcuts-config', authenticateToken, (req, res) => { fs.readFile(BATCH_SHORTCUTS_PATH, 'utf8', (err, data) => { if (err) { if (err.code === 'ENOENT') return res.json({ config: '[]' }); return res.status(500).json({ error: 'Could not read batch shortcuts file.' }); } res.json({ config: data }); }); });
+app.post('/api/batch-shortcuts-config', authenticateToken, (req, res) => { const { config } = req.body; try { JSON.parse(config); } catch (e) { return res.status(400).json({ error: 'Invalid JSON' }); } fs.writeFile(BATCH_SHORTCUTS_PATH, config, 'utf8', (err) => { if (err) return res.status(500).json({ error: 'Could not write to batch shortcuts file.' }); res.json({ success: true }); }); });
+
+const { NodeSSH } = require('node-ssh');
+
+app.post('/api/batch-execute', authenticateToken, async (req, res) => {
+    const { hostNames, command } = req.body;
+    if (!hostNames || !Array.isArray(hostNames) || hostNames.length === 0) {
+        return res.status(400).json({ error: 'Invalid or empty hostNames array.' });
+    }
+    if (!command) {
+        return res.status(400).json({ error: 'Command is required.' });
+    }
+
+    const results = [];
+
+    const promises = hostNames.map(async (serverName) => {
+        const sshConfig = hosts[serverName];
+        if (!sshConfig) {
+            results.push({ server: serverName, error: 'Host not found in configuration.' });
+            return;
+        }
+
+        const ssh = new NodeSSH();
+        try {
+            const opts = {
+                host: sshConfig.host,
+                username: sshConfig.username,
+                port: sshConfig.port || 22,
+            };
+            if (sshConfig.password) opts.password = sshConfig.password;
+            else if (sshConfig.privateKeyPath) opts.privateKey = fs.readFileSync(path.resolve(__dirname, sshConfig.privateKeyPath), 'utf8');
+            else throw new Error('Authentication method not provided.');
+
+            await ssh.connect(opts);
+
+            let execCommand = command;
+            execCommand = execCommand.replace(/\{host\}/g, sshConfig.host || '');
+            execCommand = execCommand.replace(/\{username\}/g, sshConfig.username || '');
+            execCommand = execCommand.replace(/\{port\}/g, sshConfig.port || '22');
+
+            const result = await ssh.execCommand(execCommand);
+            results.push({
+                server: serverName,
+                output: result.stdout,
+                error: result.stderr,
+                code: result.code
+            });
+            ssh.dispose();
+        } catch (error) {
+            results.push({ server: serverName, error: error.message });
+        }
+    });
+
+    await Promise.all(promises);
+    res.json(results);
+});
 
 // --- Session Management & WebSocket Handling ---
 setInterval(() => {
@@ -169,16 +228,16 @@ function setupWebSocketListeners(ws, stream, sshConfig, sessionId) {
         if (activeSessions[sessionId]) {
             activeSessions[sessionId].lastSeen = Date.now();
         }
-        if (isBinary){
+        if (isBinary) {
             stream.write(raw);
         } else {
             try {
                 // This is a control message (e.g., resize, shortcut), so parse it as JSON.
                 const msg = JSON.parse(raw);
-                if (msg.type){
+                if (msg.type) {
                     if (messageHandlers[msg.type]) messageHandlers[msg.type](msg);
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
     }
     function onData(data) {
@@ -233,7 +292,7 @@ server.on('upgrade', (request, socket, head) => {
 
     const serverName = query.server;
     if (!serverName || !hosts[serverName]) return rejectConnection(`Host \'${serverName}\' not found in hosts.json.`);
-    
+
     const sshConfig = hosts[serverName];
     const conn = new Client();
     conn.on('ready', () => {

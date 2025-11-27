@@ -1,49 +1,258 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>SSH Web Terminal</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
     <style>
-        :root { --tab-height: 40px; --bar-height: 29px; --bg-color: #1e1e1e; --tab-bg: #252526; --tab-active-bg: #333333; --border-color: #333; }
-        body, html { margin: 0; padding: 0; height: 100%; background-color: var(--bg-color); color: #ccc; font-family: sans-serif; overflow: hidden; }
-        #app-container { display: flex; flex-direction: column; height: 100vh; }
-        #tab-bar { display: flex; align-items: center; background-color: var(--tab-bg); height: var(--tab-height); flex-shrink: 0; border-bottom: 1px solid var(--border-color); }
-        #terminal-panes { flex-grow: 1; position: relative; }
-        .terminal-pane { display: none; flex-direction: column; width: 100%; height: 100%; }
-        .terminal-pane.active { display: flex; }
-        .shortcuts-bar-container { display: flex; align-items: center; height: var(--bar-height); background-color: var(--tab-bg); flex-shrink: 0; }
-        .shortcuts-bar { display: flex; align-items: center; overflow: hidden; scroll-behavior: smooth; flex-grow: 1; height: 100%; }
-        .xterm-container { flex-grow: 1; position: relative; }
-        .xterm-container .terminal, .xterm-container .xterm-viewport { width: 100% !important; height: 100% !important; }
-        .shortcuts-bar .btn { padding: 2px 4px; margin: 2px; font-size: 0.8rem; flex-shrink: 0; }
-        .shortcuts-bar-container .scroll-btn { background-color: var(--tab-bg); color: #ccc; border: none; cursor: pointer; padding: 0 8px; height: 100%; font-size: 1rem; line-height: var(--bar-height); }
-        .shortcuts-bar-container .scroll-btn:hover { background-color: #4f4f4f; }
-        .shortcuts-bar-container .scroll-btn:disabled { opacity: 0.2; cursor: default; }
-        .shortcuts-bar-container .scroll-btn.left { border-right: 1px solid var(--border-color); }
-        .shortcuts-bar-container .scroll-btn.right { border-left: 1px solid var(--border-color); }
-        .tab { display: flex; align-items: center; padding: 0 15px; height: 100%; border-right: 1px solid var(--border-color); cursor: pointer; }
-        .tab.active { background-color: var(--tab-active-bg); }
-        .tab-close { margin-left: 10px; padding: 2px 5px; border-radius: 4px; }
-        .tab-close:hover { background-color: rgba(255,255,255,0.1); }
-        #new-tab-btn { padding: 0 15px; font-size: 24px; cursor: pointer; }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 100; }
-        .modal-overlay.active { display: flex; }
-        .modal-box { padding: 2rem; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--tab-bg); width: 80%; max-width: 500px; }
-        .modal-box h2 { margin-top: 0; text-align: center; }
-        #server-select { font-size: 1rem; padding: 0.5rem; width: calc(100% - 1rem - 110px); margin-right: 0.5rem; }
-        .btn { font-size: 1rem; padding: 0.5rem 1rem; cursor: pointer; border: 1px solid #444; background-color: #3c3c3c; color: #ccc; margin-left: 4px; }
-        .btn-primary { background-color: #0e639c; border-color: #147ab8; color: #fff; }
-        .btn-group { margin-top: 1rem; display: flex; justify-content: space-between; }
-        textarea { width: 100%; height: 300px; box-sizing: border-box; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333; font-family: monospace; }
-        .editor-buttons { margin-top: 1rem; text-align: right; }
-        .message-area { margin-top: 1rem; text-align: center; color: #f00; }
-        .loading-spinner { display: none; border: 4px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; width: 24px; height: 24px; animation: spin .8s linear infinite; margin: 0 auto; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        :root {
+            --tab-height: 40px;
+            --bar-height: 29px;
+            --bg-color: #1e1e1e;
+            --tab-bg: #252526;
+            --tab-active-bg: #333333;
+            --border-color: #333;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: #ccc;
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+
+        #app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #tab-bar {
+            display: flex;
+            align-items: center;
+            background-color: var(--tab-bg);
+            height: var(--tab-height);
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        #terminal-panes {
+            flex-grow: 1;
+            position: relative;
+        }
+
+        .terminal-pane {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+        }
+
+        .terminal-pane.active {
+            display: flex;
+        }
+
+        .shortcuts-bar-container {
+            display: flex;
+            align-items: center;
+            height: var(--bar-height);
+            background-color: var(--tab-bg);
+            flex-shrink: 0;
+        }
+
+        .shortcuts-bar {
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            scroll-behavior: smooth;
+            flex-grow: 1;
+            height: 100%;
+        }
+
+        .xterm-container {
+            flex-grow: 1;
+            position: relative;
+        }
+
+        .xterm-container .terminal,
+        .xterm-container .xterm-viewport {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .shortcuts-bar .btn {
+            padding: 2px 4px;
+            margin: 2px;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+
+        .shortcuts-bar-container .scroll-btn {
+            background-color: var(--tab-bg);
+            color: #ccc;
+            border: none;
+            cursor: pointer;
+            padding: 0 8px;
+            height: 100%;
+            font-size: 1rem;
+            line-height: var(--bar-height);
+        }
+
+        .shortcuts-bar-container .scroll-btn:hover {
+            background-color: #4f4f4f;
+        }
+
+        .shortcuts-bar-container .scroll-btn:disabled {
+            opacity: 0.2;
+            cursor: default;
+        }
+
+        .shortcuts-bar-container .scroll-btn.left {
+            border-right: 1px solid var(--border-color);
+        }
+
+        .shortcuts-bar-container .scroll-btn.right {
+            border-left: 1px solid var(--border-color);
+        }
+
+        .tab {
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            height: 100%;
+            border-right: 1px solid var(--border-color);
+            cursor: pointer;
+        }
+
+        .tab.active {
+            background-color: var(--tab-active-bg);
+        }
+
+        .tab-close {
+            margin-left: 10px;
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+
+        .tab-close:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        #new-tab-btn {
+            padding: 0 15px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-box {
+            padding: 2rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--tab-bg);
+            width: 80%;
+            max-width: 500px;
+        }
+
+        .modal-box h2 {
+            margin-top: 0;
+            text-align: center;
+        }
+
+        #server-select {
+            font-size: 1rem;
+            padding: 0.5rem;
+            width: calc(100% - 1rem - 110px);
+            margin-right: 0.5rem;
+        }
+
+        .btn {
+            font-size: 1rem;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border: 1px solid #444;
+            background-color: #3c3c3c;
+            color: #ccc;
+            margin-left: 4px;
+        }
+
+        .btn-primary {
+            background-color: #0e639c;
+            border-color: #147ab8;
+            color: #fff;
+        }
+
+        .btn-group {
+            margin-top: 1rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        textarea {
+            width: 100%;
+            height: 300px;
+            box-sizing: border-box;
+            background: #1a1a1a;
+            color: #d4d4d4;
+            border: 1px solid #333;
+            font-family: monospace;
+        }
+
+        .editor-buttons {
+            margin-top: 1rem;
+            text-align: right;
+        }
+
+        .message-area {
+            margin-top: 1rem;
+            text-align: center;
+            color: #f00;
+        }
+
+        .loading-spinner {
+            display: none;
+            border: 4px solid rgba(255, 255, 255, .3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            width: 24px;
+            height: 24px;
+            animation: spin .8s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 </head>
+
 <body>
     <div id="app-container">
-        <div id="tab-bar"><div id="new-tab-btn">+</div></div>
+        <div id="tab-bar">
+            <div id="new-tab-btn">+</div>
+        </div>
         <div id="terminal-panes"></div>
     </div>
     <div id="login-modal" class="modal-overlay">
@@ -51,8 +260,10 @@
             <h2>Login</h2>
             <div class="message-area" id="login-error-message"></div>
             <div>
-                <input type="text" id="username-input" placeholder="Username" style="width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333;"/>
-                <input type="password" id="password-input" placeholder="Password" style="width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333;"/>
+                <input type="text" id="username-input" placeholder="Username"
+                    style="width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333;" />
+                <input type="password" id="password-input" placeholder="Password"
+                    style="width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333;" />
                 <button id="login-btn" class="btn btn-primary" style="width: 100%;">Login</button>
             </div>
         </div>
@@ -61,6 +272,8 @@
     <div id="hosts-editor-modal" class="modal-overlay"></div>
     <div id="shortcuts-editor-modal" class="modal-overlay"></div>
     <div id="host-select-modal" class="modal-overlay"></div>
+    <div id="batch-run-modal" class="modal-overlay"></div>
+    <div id="batch-shortcuts-editor-modal" class="modal-overlay"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
@@ -70,10 +283,12 @@
         document.addEventListener('DOMContentLoaded', () => {
             const loginModal = document.getElementById('login-modal');
             const appContainer = document.getElementById('app-container');
-            const modals = { connect: document.getElementById('connect-modal'), hostsEditor: document.getElementById('hosts-editor-modal'), shortcutsEditor: document.getElementById('shortcuts-editor-modal'), hostSelectModal: document.getElementById('host-select-modal') };
-            modals.connect.innerHTML = `<div class="modal-box"><h2>Select Host</h2><p>Start typing to filter hosts.</p><div class="message-area" id="connect-error-message"></div><div class="loading-spinner" id="connect-loading-spinner"></div><div><input list="server-list" id="server-input" autocomplete="off" style="font-size: 1rem; padding: 0.5rem; width: calc(100% - 1rem - 110px); margin-right: 0.5rem; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333; box-sizing: border-box;"/><datalist id="server-list"></datalist><button id="connect-btn" class="btn btn-primary">Connect</button></div><div class="btn-group"><button id="edit-hosts-btn" class="btn">Edit Hosts</button><button id="edit-shortcuts-btn" class="btn">Edit Shortcuts</button><button id="logout-btn" class="btn">Logout</button></div></div>`;
+            const modals = { connect: document.getElementById('connect-modal'), hostsEditor: document.getElementById('hosts-editor-modal'), shortcutsEditor: document.getElementById('shortcuts-editor-modal'), hostSelectModal: document.getElementById('host-select-modal'), batchRun: document.getElementById('batch-run-modal'), batchShortcutsEditor: document.getElementById('batch-shortcuts-editor-modal') };
+            modals.connect.innerHTML = `<div class="modal-box"><h2>Select Host</h2><p>Start typing to filter hosts.</p><div class="message-area" id="connect-error-message"></div><div class="loading-spinner" id="connect-loading-spinner"></div><div><input list="server-list" id="server-input" autocomplete="off" style="font-size: 1rem; padding: 0.5rem; width: calc(100% - 1rem - 110px); margin-right: 0.5rem; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333; box-sizing: border-box;"/><datalist id="server-list"></datalist><button id="connect-btn" class="btn btn-primary">Connect</button></div><div class="btn-group"><button id="edit-hosts-btn" class="btn">Edit Hosts</button><button id="edit-shortcuts-btn" class="btn">Edit Shortcuts</button><button id="batch-run-btn" class="btn">Batch Run</button><button id="logout-btn" class="btn">Logout</button></div></div>`;
+            modals.batchRun.innerHTML = `<div class="modal-box" style="max-width: 800px;"><h2>Batch Command Execution</h2><div style="display: flex; gap: 20px;"><div style="width: 30%; border-right: 1px solid #333; padding-right: 10px; max-height: 400px; overflow-y: auto;"><h3>Servers</h3><div><input type="checkbox" id="batch-select-all"><label for="batch-select-all"> Select All</label></div><div id="batch-server-list"></div></div><div style="width: 70%; display: flex; flex-direction: column;"><h3>Command</h3><textarea id="batch-command-input" style="height: 100px; margin-bottom: 10px;"></textarea><div style="margin-bottom: 10px;"><select id="batch-shortcuts-select" style="padding: 5px; background: #1a1a1a; color: #d4d4d4; border: 1px solid #333; width: 70%;"><option value="">Select Shortcut...</option></select><button id="batch-apply-shortcut" class="btn">Apply</button></div><div style="display: flex; justify-content: space-between;"><button id="edit-batch-shortcuts-btn" class="btn">Edit Batch Shortcuts</button><button id="batch-execute-btn" class="btn btn-primary">Run</button></div><h3>Results</h3><div id="batch-results" style="flex-grow: 1; background: #1a1a1a; border: 1px solid #333; padding: 10px; overflow-y: auto; max-height: 300px; white-space: pre-wrap; font-family: monospace;"></div></div></div><div class="editor-buttons"><button data-action="cancel-batch" class="btn">Close</button></div></div>`;
             modals.hostsEditor.innerHTML = `<div class="modal-box"><h2>Edit Hosts (hosts.json)</h2><textarea id="hosts-textarea"></textarea><div class="editor-buttons"><button data-action="cancel-edit" class="btn">Cancel</button><button data-action="save-hosts" class="btn btn-primary">Save</button></div></div>`;
             modals.shortcutsEditor.innerHTML = `<div class="modal-box"><h2>Edit Shortcuts (shortcuts.json)</h2><textarea id="shortcuts-textarea"></textarea><div class="editor-buttons"><button data-action="cancel-edit" class="btn">Cancel</button><button data-action="save-shortcuts" class="btn btn-primary">Save</button></div></div>`;
+            modals.batchShortcutsEditor.innerHTML = `<div class="modal-box"><h2>Edit Batch Shortcuts (batch_shortcuts.json)</h2><textarea id="batch-shortcuts-textarea"></textarea><div class="editor-buttons"><button data-action="cancel-batch-edit" class="btn">Cancel</button><button data-action="save-batch-shortcuts" class="btn btn-primary">Save</button></div></div>`;
 
             const tabBar = document.getElementById('tab-bar');
             const terminalPanes = document.getElementById('terminal-panes');
@@ -82,11 +297,12 @@
             const connectLoadingSpinner = document.getElementById('connect-loading-spinner');
             const hostsTextarea = document.getElementById('hosts-textarea');
             const shortcutsTextarea = document.getElementById('shortcuts-textarea');
+            const batchShortcutsTextarea = document.getElementById('batch-shortcuts-textarea');
             const newTabBtn = document.getElementById('new-tab-btn');
 
             let terminals = {};
 
-            function showModal(modalName) { Object.values(modals).forEach(m => m.classList.remove('active')); if(modalName) modals[modalName].classList.add('active'); }
+            function showModal(modalName) { Object.values(modals).forEach(m => m.classList.remove('active')); if (modalName) modals[modalName].classList.add('active'); }
             function getSessions() { return JSON.parse(localStorage.getItem('sshSessions') || '[]'); }
             function saveSessions(sessions) { localStorage.setItem('sshSessions', JSON.stringify(sessions)); }
 
@@ -106,7 +322,7 @@
                     showLoginModal();
                     throw new Error('Session expired');
                 }
-                
+
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
                     throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
@@ -134,14 +350,15 @@
                 document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.sessionId === sessionId));
                 document.querySelectorAll('.terminal-pane').forEach(p => p.classList.toggle('active', p.dataset.sessionId === sessionId));
                 const termInfo = terminals[sessionId];
-                if (termInfo) { 
+                if (termInfo) {
                     setTimeout(() => {
-                        termInfo.fitAddon.fit(); 
+                        termInfo.fitAddon.fit();
                         // After fitting, the dimensions are accurate. Send them to the backend PTY.
                         // This corrects any initial size mismatch and fixes line wrapping issues.
                         termInfo.ws.send(JSON.stringify({ type: 'resize', cols: termInfo.term.cols, rows: termInfo.term.rows }));
-                    }, 0); 
-                    termInfo.term.focus(); }
+                    }, 0);
+                    termInfo.term.focus();
+                }
             }
 
             function createTerminal(session, ws) {
@@ -164,7 +381,7 @@
                 term.loadAddon(fitAddon); term.loadAddon(serializeAddon);
                 term.open(pane.querySelector('.xterm-container'));
                 if (content) term.write(content);
-                window.addEventListener('resize', () => {fitAddon.fit(); ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));});
+                window.addEventListener('resize', () => { fitAddon.fit(); ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows })); });
                 terminals[sessionId] = { term, serializeAddon, ws, pane, fitAddon };
                 loadShortcuts(ws, term, sessionId, hostName);
                 ws.onmessage = (event) => {
@@ -175,9 +392,9 @@
                             term.write(new Uint8Array(event.data));
                         } else {
                             const msg = JSON.parse(event.data);
-                            if(msg.type === 'error') { 
-                                    alert('Error: ' + msg.message);
-                                }
+                            if (msg.type === 'error') {
+                                alert('Error: ' + msg.message);
+                            }
                             else if (msg.type === 'request_host_selection') {
                                 modals.hostSelectModal.innerHTML = `
                                     <div class="modal-box">
@@ -222,7 +439,7 @@
                 });
                 renderTabs();
             }
-            
+
             function loadShortcuts(ws, term, sessionId, hostName) {
                 const shortcutsBar = document.getElementById(`shortcuts-bar-${sessionId}`);
                 if (!shortcutsBar) return;
@@ -251,7 +468,7 @@
                     const filtered = shortcuts.filter(sc => {
                         return !sc.for || (Array.isArray(sc.for) && sc.for.includes(hostName));
                     });
-                    
+
                     filtered.forEach((sc) => {
                         const btn = document.createElement('button');
                         btn.className = 'btn'; btn.textContent = sc.name;
@@ -361,11 +578,11 @@
                 serverInput.disabled = true;
 
                 localStorage.setItem('lastSelectedHost', serverName);
-                
+
                 const token = localStorage.getItem('authToken');
                 const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ssh?server=${serverName}&token=${token}`);
                 ws.binaryType = 'arraybuffer'; // Ensure binary data is received as ArrayBuffer
-                
+
                 ws.onmessage = (event) => {
                     try {
                         const msg = JSON.parse(event.data);
@@ -399,13 +616,100 @@
                 };
             });
             document.getElementById('logout-btn').addEventListener('click', logout);
-            document.getElementById('edit-hosts-btn').addEventListener('click', () => fetchWithAuth('/api/hosts-config').then(r=>r.json()).then(d => { hostsTextarea.value = d.config; showModal('hostsEditor'); }).catch(err => alert('Error: ' + err.message)));
-            document.getElementById('edit-shortcuts-btn').addEventListener('click', () => fetchWithAuth('/api/shortcuts-config').then(r=>r.json()).then(d => { shortcutsTextarea.value = d.config; showModal('shortcutsEditor'); }).catch(err => alert('Error: ' + err.message)));
+            document.getElementById('edit-hosts-btn').addEventListener('click', () => fetchWithAuth('/api/hosts-config').then(r => r.json()).then(d => { hostsTextarea.value = d.config; showModal('hostsEditor'); }).catch(err => alert('Error: ' + err.message)));
+            document.getElementById('edit-shortcuts-btn').addEventListener('click', () => fetchWithAuth('/api/shortcuts-config').then(r => r.json()).then(d => { shortcutsTextarea.value = d.config; showModal('shortcutsEditor'); }).catch(err => alert('Error: ' + err.message)));
+            document.getElementById('batch-run-btn').addEventListener('click', () => {
+                fetchWithAuth('/api/servers').then(r => r.json()).then(servers => {
+                    const list = document.getElementById('batch-server-list');
+                    list.innerHTML = '';
+                    servers.forEach(s => {
+                        const div = document.createElement('div');
+                        div.innerHTML = `<input type="checkbox" class="batch-server-checkbox" value="${s.name}" id="batch-server-${s.name}"><label for="batch-server-${s.name}"> ${s.name}</label>`;
+                        list.appendChild(div);
+                    });
+                    document.getElementById('batch-results').textContent = '';
+                    document.getElementById('batch-command-input').value = '';
+                    loadBatchShortcuts();
+                    showModal('batchRun');
+                });
+            });
+
+            function loadBatchShortcuts() {
+                const select = document.getElementById('batch-shortcuts-select');
+                fetchWithAuth('/api/batch-shortcuts').then(r => r.json()).then(shortcuts => {
+                    select.innerHTML = '<option value="">Select Shortcut...</option>';
+                    if (Array.isArray(shortcuts)) {
+                        shortcuts.forEach(sc => {
+                            const option = document.createElement('option');
+                            option.value = sc.command;
+                            option.textContent = sc.name;
+                            select.appendChild(option);
+                        });
+                    }
+                });
+            }
+
+            document.getElementById('batch-apply-shortcut').addEventListener('click', () => {
+                const select = document.getElementById('batch-shortcuts-select');
+                const commandInput = document.getElementById('batch-command-input');
+                if (select.value) {
+                    commandInput.value = select.value;
+                }
+            });
+
+            document.getElementById('edit-batch-shortcuts-btn').addEventListener('click', () => {
+                fetchWithAuth('/api/batch-shortcuts-config').then(r => r.json()).then(d => {
+                    batchShortcutsTextarea.value = d.config;
+                    showModal('batchShortcutsEditor');
+                }).catch(err => alert('Error: ' + err.message));
+            });
+
+            document.getElementById('batch-select-all').addEventListener('change', (e) => {
+                document.querySelectorAll('.batch-server-checkbox').forEach(cb => cb.checked = e.target.checked);
+            });
+            document.getElementById('batch-execute-btn').addEventListener('click', async () => {
+                const selectedServers = Array.from(document.querySelectorAll('.batch-server-checkbox:checked')).map(cb => cb.value);
+                const command = document.getElementById('batch-command-input').value;
+                const resultsDiv = document.getElementById('batch-results');
+
+                if (selectedServers.length === 0) return alert('Please select at least one server.');
+                if (!command) return alert('Please enter a command.');
+
+                resultsDiv.textContent = 'Running...';
+                document.getElementById('batch-execute-btn').disabled = true;
+
+                try {
+                    const response = await fetchWithAuth('/api/batch-execute', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ hostNames: selectedServers, command })
+                    });
+                    const results = await response.json();
+                    resultsDiv.innerHTML = '';
+                    results.forEach(res => {
+                        const div = document.createElement('div');
+                        div.style.marginBottom = '10px';
+                        div.style.borderBottom = '1px solid #444';
+                        div.style.paddingBottom = '5px';
+                        const statusColor = res.code === 0 ? '#4caf50' : '#f44336';
+                        div.innerHTML = `<strong style="color: ${statusColor}">${res.server} (Exit Code: ${res.code})</strong><br>`;
+                        if (res.error) div.innerHTML += `<span style="color: #f44336">Error: ${res.error}</span><br>`;
+                        if (res.output) div.innerHTML += `<span>${res.output}</span>`;
+                        resultsDiv.appendChild(div);
+                    });
+                } catch (err) {
+                    resultsDiv.textContent = 'Error: ' + err.message;
+                } finally {
+                    document.getElementById('batch-execute-btn').disabled = false;
+                }
+            });
             document.body.addEventListener('click', (e) => {
                 const action = e.target.dataset.action;
-                if (action === 'cancel-edit') showModal('connect');
-                if (action === 'save-hosts') fetchWithAuth('/api/hosts-config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({config: hostsTextarea.value}) }).then(r=>r.json()).then(d => { if(!d.success) throw new Error(d.error); alert('Hosts saved!'); populateServerList(); showModal('connect'); }).catch(err => alert('Save failed: ' + err.message));
-                if (action === 'save-shortcuts') fetchWithAuth('/api/shortcuts-config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({config: shortcutsTextarea.value}) }).then(r=>r.json()).then(d => { if(!d.success) throw new Error(d.error); alert('Shortcuts saved!'); showModal('connect'); }).catch(err => alert('Save failed: ' + err.message));
+                if (action === 'cancel-edit' || action === 'cancel-batch') showModal('connect');
+                if (action === 'cancel-batch-edit') showModal('batchRun');
+                if (action === 'save-hosts') fetchWithAuth('/api/hosts-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config: hostsTextarea.value }) }).then(r => r.json()).then(d => { if (!d.success) throw new Error(d.error); alert('Hosts saved!'); populateServerList(); showModal('connect'); }).catch(err => alert('Save failed: ' + err.message));
+                if (action === 'save-shortcuts') fetchWithAuth('/api/shortcuts-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config: shortcutsTextarea.value }) }).then(r => r.json()).then(d => { if (!d.success) throw new Error(d.error); alert('Shortcuts saved!'); showModal('connect'); }).catch(err => alert('Save failed: ' + err.message));
+                if (action === 'save-batch-shortcuts') fetchWithAuth('/api/batch-shortcuts-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config: batchShortcutsTextarea.value }) }).then(r => r.json()).then(d => { if (!d.success) throw new Error(d.error); alert('Batch Shortcuts saved!'); loadBatchShortcuts(); showModal('batchRun'); }).catch(err => alert('Save failed: ' + err.message));
             });
             Object.values(modals).forEach(modal => {
                 modal.addEventListener('click', (e) => { if (e.target === modal) showModal(null); });
@@ -456,4 +760,5 @@
         });
     </script>
 </body>
+
 </html>
