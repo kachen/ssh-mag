@@ -27,8 +27,16 @@
 
         #app-container {
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
             height: 100vh;
+        }
+
+        #main-workspace {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 0;
+            height: 100%;
         }
 
         #tab-bar {
@@ -43,6 +51,233 @@
         #terminal-panes {
             flex-grow: 1;
             position: relative;
+            min-height: 0;
+        }
+
+        #chat-panel {
+            width: 360px;
+            min-width: 240px;
+            max-width: min(70vw, 720px);
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            background: #1a1a1a;
+            border-left: 1px solid var(--border-color);
+            height: 100%;
+            position: relative;
+        }
+
+        #chat-resize-handle {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            cursor: col-resize;
+            z-index: 5;
+            background: transparent;
+        }
+
+        #chat-resize-handle:hover,
+        #chat-panel.resizing #chat-resize-handle {
+            background: #0e639c88;
+        }
+
+        body.chat-resizing {
+            cursor: col-resize;
+            user-select: none;
+        }
+
+        body.chat-resizing iframe,
+        body.chat-resizing .xterm {
+            pointer-events: none;
+        }
+
+        #chat-panel.collapsed {
+            width: 36px !important;
+            min-width: 36px;
+            max-width: 36px;
+            overflow: visible;
+            z-index: 30;
+        }
+
+        #chat-panel.collapsed #chat-body,
+        #chat-panel.collapsed #chat-input-area,
+        #chat-panel.collapsed #chat-status,
+        #chat-panel.collapsed #chat-resize-handle,
+        #chat-panel.collapsed #chat-header h3,
+        #chat-panel.collapsed #chat-clear {
+            display: none !important;
+        }
+
+        #chat-panel.collapsed #chat-header {
+            padding: 0;
+            justify-content: center;
+            border-bottom: none;
+            height: 100%;
+            min-height: var(--tab-height);
+            flex-direction: column;
+        }
+
+        #chat-panel.collapsed #chat-header > div {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #chat-panel.collapsed #chat-toggle {
+            width: 100%;
+            height: 100%;
+            min-height: var(--tab-height);
+            flex: 1;
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            margin: 0;
+            font-size: 1.15rem;
+            line-height: 1;
+            background: var(--tab-bg);
+        }
+
+        #chat-panel.collapsed #chat-toggle:hover {
+            background: #3a3a3a;
+            color: #fff;
+        }
+
+        #chat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: var(--tab-bg);
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+            height: var(--tab-height);
+            box-sizing: border-box;
+            gap: 6px;
+            min-width: 0;
+            position: relative;
+            z-index: 2;
+        }
+
+        #chat-header h3 {
+            margin: 0;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #ddd;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+            flex: 1;
+        }
+
+        #chat-header > div {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        #chat-toggle {
+            background: transparent;
+            border: 1px solid #444;
+            color: #ccc;
+            cursor: pointer;
+            padding: 2px 8px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 3;
+        }
+
+        #chat-status {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            color: #888;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        #chat-status.ok { color: #6abf69; }
+        #chat-status.err { color: #e57373; }
+
+        #chat-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            min-height: 0;
+        }
+
+        .chat-msg {
+            margin-bottom: 10px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .chat-msg.user {
+            background: #0e639c33;
+            border: 1px solid #147ab855;
+            margin-left: 12px;
+        }
+
+        .chat-msg.assistant {
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            margin-right: 8px;
+        }
+
+        .chat-msg.system {
+            background: transparent;
+            color: #888;
+            font-size: 0.8rem;
+            border: none;
+            padding: 4px 0;
+        }
+
+        .chat-msg .tool-trace {
+            margin-top: 6px;
+            font-size: 0.75rem;
+            color: #9cdcfe;
+            opacity: 0.85;
+        }
+
+        #chat-input-area {
+            border-top: 1px solid var(--border-color);
+            padding: 8px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        #chat-input {
+            width: 100%;
+            min-height: 64px;
+            max-height: 140px;
+            resize: vertical;
+            box-sizing: border-box;
+            background: #111;
+            color: #d4d4d4;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 8px;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        #chat-send {
+            align-self: flex-end;
+        }
+
+        #chat-send:disabled {
+            opacity: 0.5;
+            cursor: default;
         }
 
         .terminal-pane {
@@ -126,20 +361,132 @@
             height: 100%;
             border-right: 1px solid var(--border-color);
             cursor: pointer;
+            gap: 6px;
+            position: relative;
         }
 
         .tab.active {
             background-color: var(--tab-active-bg);
         }
 
+        .tab.ai-owned {
+            box-shadow: inset 0 -2px 0 #e0a100;
+        }
+
+        .tab.ai-active {
+            background: linear-gradient(180deg, #3d3200 0%, var(--tab-bg) 100%);
+            animation: ai-tab-pulse 1.2s ease-in-out infinite;
+        }
+
+        .tab.ai-active.active {
+            background: linear-gradient(180deg, #4a3c00 0%, var(--tab-active-bg) 100%);
+        }
+
+        @keyframes ai-tab-pulse {
+            0%, 100% { box-shadow: inset 0 -2px 0 #e0a100; }
+            50% { box-shadow: inset 0 -2px 0 #ffd54f, 0 0 8px #e0a10055; }
+        }
+
+        .tab-ai-badge {
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: #1a1a1a;
+            background: #ffc107;
+            border-radius: 3px;
+            padding: 1px 4px;
+            line-height: 1.2;
+            flex-shrink: 0;
+        }
+
+        .tab-ai-badge.live {
+            background: #ff9800;
+            animation: ai-badge-blink 0.9s step-end infinite;
+        }
+
+        @keyframes ai-badge-blink {
+            50% { opacity: 0.45; }
+        }
+
         .tab-close {
-            margin-left: 10px;
+            margin-left: 4px;
             padding: 2px 5px;
             border-radius: 4px;
         }
 
         .tab-close:hover {
             background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .terminal-pane.ai-active-pane {
+            outline: 2px solid #e0a100;
+            outline-offset: -2px;
+        }
+
+        .ai-pane-banner {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+            padding: 4px 10px;
+            font-size: 0.78rem;
+            color: #1a1200;
+            background: linear-gradient(90deg, #ffc107, #ff9800);
+            border-bottom: 1px solid #c79100;
+            font-family: sans-serif;
+            z-index: 4;
+        }
+
+        .terminal-pane.ai-active-pane .ai-pane-banner {
+            display: flex;
+        }
+
+        .ai-pane-banner strong {
+            font-weight: 700;
+        }
+
+        .ai-pane-banner code {
+            font-size: 0.75rem;
+            background: rgba(0,0,0,0.12);
+            padding: 1px 6px;
+            border-radius: 3px;
+            max-width: 60%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #ai-control-banner {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+            padding: 6px 12px;
+            font-size: 0.82rem;
+            color: #1a1200;
+            background: linear-gradient(90deg, #ffb300, #ff8f00);
+            border-bottom: 1px solid #e65100;
+            z-index: 20;
+        }
+
+        #ai-control-banner.visible {
+            display: flex;
+        }
+
+        #ai-control-banner .ai-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #1a1200;
+            animation: ai-badge-blink 0.9s step-end infinite;
+            flex-shrink: 0;
+        }
+
+        #ai-control-banner .hosts {
+            opacity: 0.9;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         #new-tab-btn {
@@ -250,10 +597,33 @@
 
 <body>
     <div id="app-container">
-        <div id="tab-bar">
-            <div id="new-tab-btn">+</div>
+        <div id="main-workspace">
+            <div id="ai-control-banner" role="status" aria-live="polite">
+                <span class="ai-dot" aria-hidden="true"></span>
+                <span id="ai-control-banner-text"><strong>AI 正在操作終端</strong></span>
+                <span class="hosts" id="ai-control-banner-hosts"></span>
+            </div>
+            <div id="tab-bar">
+                <div id="new-tab-btn">+</div>
+            </div>
+            <div id="terminal-panes"></div>
         </div>
-        <div id="terminal-panes"></div>
+        <aside id="chat-panel">
+            <div id="chat-resize-handle" title="Drag to resize"></div>
+            <div id="chat-header">
+                <h3>AI Ops</h3>
+                <div>
+                    <button type="button" id="chat-clear" class="btn" title="Clear chat" style="padding:2px 8px; font-size:0.75rem; margin:0;">Clear</button>
+                    <button type="button" id="chat-toggle" title="Collapse / Expand">⟩</button>
+                </div>
+            </div>
+            <div id="chat-status">Checking AI…</div>
+            <div id="chat-body"></div>
+            <div id="chat-input-area">
+                <textarea id="chat-input" placeholder="例如：打開某台機器並查 df -h（Enter 換行，點 Send 送出）" rows="3"></textarea>
+                <button type="button" id="chat-send" class="btn btn-primary">Send</button>
+            </div>
+        </aside>
     </div>
     <div id="login-modal" class="modal-overlay">
         <div class="modal-box">
@@ -301,10 +671,114 @@
             const newTabBtn = document.getElementById('new-tab-btn');
 
             let terminals = {};
+            /** sessionId -> AI activity from server */
+            const sessionAiState = {};
+            let chatBusy = false;
+            let aiUiTickTimer = null;
 
             function showModal(modalName) { Object.values(modals).forEach(m => m.classList.remove('active')); if (modalName) modals[modalName].classList.add('active'); }
             function getSessions() { return JSON.parse(localStorage.getItem('sshSessions') || '[]'); }
             function saveSessions(sessions) { localStorage.setItem('sshSessions', JSON.stringify(sessions)); }
+
+            function updateSessionAiState(sessionId, meta) {
+                if (!sessionId) return;
+                if (!meta) {
+                    delete sessionAiState[sessionId];
+                    return;
+                }
+                sessionAiState[sessionId] = {
+                    openedByAi: Boolean(meta.openedByAi),
+                    aiActive: Boolean(meta.aiActive),
+                    lastAction: meta.lastAction || null,
+                    lastCommand: meta.lastCommand || null,
+                    lastAiAt: meta.lastAiAt || null,
+                };
+            }
+
+            function applyAiUiToSession(sessionId) {
+                const meta = sessionAiState[sessionId] || {};
+                // Badge / highlight only while AI is actively controlling (not permanently after open)
+                const active = Boolean(meta.aiActive);
+                const tab = document.querySelector(`.tab[data-session-id="${sessionId}"]`);
+                if (tab) {
+                    tab.classList.toggle('ai-owned', active);
+                    tab.classList.toggle('ai-active', active);
+                    let badge = tab.querySelector('.tab-ai-badge');
+                    if (active) {
+                        if (!badge) {
+                            badge = document.createElement('span');
+                            badge.className = 'tab-ai-badge';
+                            const close = tab.querySelector('.tab-close');
+                            if (close) tab.insertBefore(badge, close);
+                            else tab.appendChild(badge);
+                        }
+                        badge.textContent = 'AI';
+                        badge.classList.add('live');
+                        badge.title = meta.lastCommand
+                            ? `AI running: ${meta.lastCommand}`
+                            : 'AI is controlling this terminal';
+                    } else if (badge) {
+                        badge.remove();
+                    }
+                }
+                const pane = terminals[sessionId] && terminals[sessionId].pane;
+                if (pane) {
+                    pane.classList.toggle('ai-active-pane', active);
+                    const banner = pane.querySelector('.ai-pane-banner');
+                    if (banner) {
+                        const cmd = banner.querySelector('code');
+                        if (active && meta.lastCommand) {
+                            cmd.textContent = meta.lastCommand;
+                            cmd.hidden = false;
+                        } else if (active) {
+                            cmd.textContent = meta.lastAction || 'working…';
+                            cmd.hidden = false;
+                        } else {
+                            cmd.hidden = true;
+                        }
+                    }
+                }
+            }
+
+            function refreshAiControlBanner() {
+                const banner = document.getElementById('ai-control-banner');
+                const textEl = document.getElementById('ai-control-banner-text');
+                const hostsEl = document.getElementById('ai-control-banner-hosts');
+                if (!banner) return;
+                const activeIds = Object.keys(sessionAiState).filter(id => sessionAiState[id].aiActive);
+                const ownedIds = Object.keys(sessionAiState).filter(id => sessionAiState[id].openedByAi || sessionAiState[id].aiActive);
+                const show = chatBusy || activeIds.length > 0;
+                banner.classList.toggle('visible', show);
+                if (!show) return;
+                const hostNames = activeIds.map(id => {
+                    const s = getSessions().find(x => x.sessionId === id);
+                    return (s && s.hostName) || (terminals[id] && terminals[id].hostName) || id.slice(0, 8);
+                });
+                if (chatBusy && activeIds.length === 0) {
+                    textEl.innerHTML = '<strong>AI 工作中</strong> — 連線或下指令時終端會即時開啟';
+                    hostsEl.textContent = ownedIds.length ? `已追蹤 ${ownedIds.length} 個 session` : '';
+                } else if (activeIds.length > 0) {
+                    textEl.innerHTML = '<strong>AI 正在操作終端</strong> — 指令會出現在下方 xterm';
+                    hostsEl.textContent = hostNames.length ? hostNames.join(', ') : '';
+                }
+            }
+
+            function startAiUiTicker() {
+                if (aiUiTickTimer) return;
+                aiUiTickTimer = setInterval(() => {
+                    // Local expiry fallback if poll lags
+                    const now = Date.now();
+                    for (const id of Object.keys(sessionAiState)) {
+                        const m = sessionAiState[id];
+                        if (m.aiActive && m.lastAiAt && now - m.lastAiAt > 12000) {
+                            m.aiActive = false;
+                            applyAiUiToSession(id);
+                        }
+                    }
+                    refreshAiControlBanner();
+                }, 1000);
+            }
+            startAiUiTicker();
 
             async function fetchWithAuth(url, options = {}) {
                 const token = localStorage.getItem('authToken');
@@ -325,7 +799,7 @@
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
-                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                    throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`);
                 }
 
                 return response;
@@ -338,9 +812,11 @@
                     const tabEl = document.createElement('div');
                     tabEl.className = 'tab';
                     tabEl.dataset.sessionId = session.sessionId;
-                    tabEl.innerHTML = `<span>${session.hostName}</span><span class="tab-close">x</span>`;
+                    tabEl.innerHTML = `<span class="tab-title">${session.hostName}</span><span class="tab-close">x</span>`;
                     tabBar.insertBefore(tabEl, newTabBtn);
+                    applyAiUiToSession(session.sessionId);
                 });
+                refreshAiControlBanner();
             }
 
             function activateTab(sessionId) {
@@ -367,6 +843,11 @@
                 pane.className = 'terminal-pane';
                 pane.dataset.sessionId = sessionId;
                 pane.innerHTML = `
+                    <div class="ai-pane-banner">
+                        <strong>AI 操作中</strong>
+                        <span>指令由 AI 寫入此終端</span>
+                        <code hidden></code>
+                    </div>
                     <div class="shortcuts-bar-container">
                         <button class="scroll-btn left" data-session-id="${sessionId}" style="display: none;">&lt;</button>
                         <div id="shortcuts-bar-${sessionId}" class="shortcuts-bar"></div>
@@ -382,7 +863,8 @@
                 term.open(pane.querySelector('.xterm-container'));
                 if (content) term.write(content);
                 window.addEventListener('resize', () => { fitAddon.fit(); ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows })); });
-                terminals[sessionId] = { term, serializeAddon, ws, pane, fitAddon };
+                terminals[sessionId] = { term, serializeAddon, ws, pane, fitAddon, hostName };
+                applyAiUiToSession(sessionId);
                 loadShortcuts(ws, term, sessionId, hostName);
                 ws.onmessage = (event) => {
                     try {
@@ -490,7 +972,7 @@
                 if (!sessionToClose) return;
                 const wasActive = sessionToClose.isActive;
                 sessions = sessions.filter(s => s.sessionId !== sessionId);
-                terminals[sessionId]?.ws.close();
+                try { terminals[sessionId]?.ws.close(); } catch (_) { /* ignore */ }
                 terminals[sessionId]?.term.dispose();
                 terminals[sessionId]?.pane.remove();
                 document.querySelector(`.tab[data-session-id="${sessionId}"]`)?.remove();
@@ -499,6 +981,407 @@
                 saveSessions(sessions);
                 if (getSessions().length === 0) newTabBtn.click();
             }
+
+            /** In-flight attaches so live-poll does not open the same session twice. */
+            const attachingSessionIds = new Set();
+            let sessionLivePollTimer = null;
+
+            /**
+             * Attach browser xterm to an existing server-side SSH session (AI open_host_session).
+             * @param {{ activate?: boolean }} [opts] activate=false keeps focus on current tab when bulk-opening
+             */
+            function attachSession(sessionId, hostName, opts) {
+                const activate = !opts || opts.activate !== false;
+                if (!sessionId || !hostName) return Promise.resolve(false);
+                if (terminals[sessionId]) {
+                    if (activate) activateTab(sessionId);
+                    return Promise.resolve(true);
+                }
+                if (attachingSessionIds.has(sessionId)) {
+                    return Promise.resolve(false);
+                }
+                attachingSessionIds.add(sessionId);
+                return new Promise((resolve) => {
+                    const token = localStorage.getItem('authToken');
+                    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ssh?sessionId=${encodeURIComponent(sessionId)}&token=${encodeURIComponent(token)}`);
+                    ws.binaryType = 'arraybuffer';
+                    let opened = false;
+                    const done = (ok) => {
+                        attachingSessionIds.delete(sessionId);
+                        resolve(ok);
+                    };
+                    const failTimer = setTimeout(() => {
+                        if (!opened) {
+                            try { ws.close(); } catch (_) { /* ignore */ }
+                            done(false);
+                        }
+                    }, 8000);
+                    ws.onopen = () => {
+                        opened = true;
+                        clearTimeout(failTimer);
+                        let sessions = getSessions();
+                        if (!sessions.some(s => s.sessionId === sessionId)) {
+                            sessions.push({ sessionId, hostName, isActive: false });
+                        }
+                        if (activate) {
+                            sessions = sessions.map(s => ({ ...s, isActive: s.sessionId === sessionId }));
+                        }
+                        saveSessions(sessions);
+                        createTerminal({ sessionId, hostName }, ws);
+                        if (activate) activateTab(sessionId);
+                        else {
+                            renderTabs();
+                            // Ensure new pane exists but stay on previous active tab
+                            const active = sessions.find(s => s.isActive) || sessions[0];
+                            if (active) activateTab(active.sessionId);
+                        }
+                        done(true);
+                    };
+                    ws.onerror = () => {
+                        clearTimeout(failTimer);
+                        done(false);
+                    };
+                });
+            }
+
+            /** Pull server sessions and open any xterm tabs not yet in the UI (live during agent run). */
+            async function reconcileLiveSessions(opts) {
+                const activateNew = opts && opts.activateNew === true;
+                try {
+                    const sr = await fetchWithAuth('/api/sessions');
+                    const live = await sr.json();
+                    if (!Array.isArray(live)) return;
+
+                    const liveIds = new Set(live.map(s => s.sessionId));
+                    for (const s of live) {
+                        if (!s.sessionId) continue;
+                        updateSessionAiState(s.sessionId, s);
+                        applyAiUiToSession(s.sessionId);
+                    }
+                    // Clear AI flags for sessions no longer reported as active AI
+                    for (const id of Object.keys(sessionAiState)) {
+                        if (!liveIds.has(id)) {
+                            // keep openedByAi cosmetic briefly? drop if gone from server
+                            delete sessionAiState[id];
+                        }
+                    }
+
+                    const pending = live.filter(s => s.sessionId && s.serverName && !terminals[s.sessionId] && !attachingSessionIds.has(s.sessionId));
+                    if (pending.length > 0) {
+                        await Promise.all(pending.map((s, i) =>
+                            attachSession(s.sessionId, s.serverName, {
+                                activate: activateNew && i === pending.length - 1,
+                            })
+                        ));
+                        renderTabs();
+                    } else {
+                        refreshAiControlBanner();
+                    }
+                } catch (_) { /* ignore while agent running */ }
+            }
+
+            function startSessionLivePoll() {
+                stopSessionLivePoll();
+                reconcileLiveSessions({ activateNew: true });
+                sessionLivePollTimer = setInterval(() => {
+                    reconcileLiveSessions({ activateNew: true });
+                }, 500);
+            }
+
+            function stopSessionLivePoll() {
+                if (sessionLivePollTimer) {
+                    clearInterval(sessionLivePollTimer);
+                    sessionLivePollTimer = null;
+                }
+            }
+
+            async function processClientActions(actions) {
+                if (!Array.isArray(actions)) return;
+                await Promise.all(actions
+                    .filter(a => a.type === 'attach_session')
+                    .map(a => attachSession(a.sessionId, a.hostName, { activate: false }))
+                );
+                await reconcileLiveSessions({ activateNew: false });
+            }
+
+            // --- AI Chat (persisted in localStorage across browser reloads) ---
+            const chatBody = document.getElementById('chat-body');
+            const chatInput = document.getElementById('chat-input');
+            const chatSend = document.getElementById('chat-send');
+            const chatStatus = document.getElementById('chat-status');
+            const chatPanel = document.getElementById('chat-panel');
+            const CHAT_LOG_KEY = 'aiChatLog';
+            const CHAT_HISTORY_KEY = 'aiChatHistory';
+            const CHAT_ACP_SESSION_KEY = 'aiAcpSessionId';
+            const CHAT_LOG_MAX = 100;
+            const CHAT_HISTORY_MAX = 40;
+            let chatHistory = [];
+            let chatLog = [];
+            let acpSessionId = null;
+            let forceContextResync = false;
+
+            function loadChatState() {
+                try {
+                    chatHistory = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || '[]');
+                    if (!Array.isArray(chatHistory)) chatHistory = [];
+                } catch (_) {
+                    chatHistory = [];
+                }
+                try {
+                    chatLog = JSON.parse(localStorage.getItem(CHAT_LOG_KEY) || '[]');
+                    if (!Array.isArray(chatLog)) chatLog = [];
+                } catch (_) {
+                    chatLog = [];
+                }
+                acpSessionId = localStorage.getItem(CHAT_ACP_SESSION_KEY) || null;
+            }
+
+            function persistChatState() {
+                try {
+                    localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(chatHistory.slice(-CHAT_HISTORY_MAX)));
+                    localStorage.setItem(CHAT_LOG_KEY, JSON.stringify(chatLog.slice(-CHAT_LOG_MAX)));
+                    if (acpSessionId) localStorage.setItem(CHAT_ACP_SESSION_KEY, acpSessionId);
+                    else localStorage.removeItem(CHAT_ACP_SESSION_KEY);
+                } catch (e) {
+                    console.warn('Failed to persist chat:', e);
+                }
+            }
+
+            function setAcpSessionId(id) {
+                if (id && id !== acpSessionId) {
+                    // Session id changed on server → next prompt may need history re-inject
+                    if (acpSessionId && chatHistory.length > 0) forceContextResync = true;
+                    acpSessionId = id;
+                    persistChatState();
+                } else if (id) {
+                    acpSessionId = id;
+                    persistChatState();
+                }
+            }
+
+            async function clearPersistedChat() {
+                chatHistory = [];
+                chatLog = [];
+                forceContextResync = false;
+                localStorage.removeItem(CHAT_HISTORY_KEY);
+                localStorage.removeItem(CHAT_LOG_KEY);
+                chatBody.innerHTML = '';
+                try {
+                    const r = await fetchWithAuth('/api/ai/reset', { method: 'POST' });
+                    const d = await r.json();
+                    if (d.acpSessionId) setAcpSessionId(d.acpSessionId);
+                } catch (e) {
+                    console.warn('Agent session reset failed:', e);
+                    acpSessionId = null;
+                    localStorage.removeItem(CHAT_ACP_SESSION_KEY);
+                }
+                persistChatState();
+            }
+
+            /**
+             * @param {string} role
+             * @param {string} text
+             * @param {string} [extraHtml]
+             * @param {{ persist?: boolean }} [opts] persist=false for ephemeral UI (e.g. Thinking…)
+             */
+            function appendChatMessage(role, text, extraHtml, opts) {
+                const persist = !opts || opts.persist !== false;
+                const el = document.createElement('div');
+                el.className = `chat-msg ${role}`;
+                el.textContent = text || '';
+                if (extraHtml) {
+                    const extra = document.createElement('div');
+                    extra.className = 'tool-trace';
+                    extra.textContent = extraHtml;
+                    el.appendChild(extra);
+                }
+                chatBody.appendChild(el);
+                chatBody.scrollTop = chatBody.scrollHeight;
+                if (persist) {
+                    chatLog.push({ role, text: text || '', extra: extraHtml || '', ts: Date.now() });
+                    if (chatLog.length > CHAT_LOG_MAX) chatLog = chatLog.slice(-CHAT_LOG_MAX);
+                    persistChatState();
+                }
+            }
+
+            function restoreChatUi() {
+                loadChatState();
+                chatBody.innerHTML = '';
+                if (chatLog.length === 0) {
+                    appendChatMessage('system', 'Powered by grok agent serve + ssh-mag MCP. UI + agent context stay in sync across reloads.');
+                    return;
+                }
+                for (const m of chatLog) {
+                    appendChatMessage(m.role, m.text, m.extra || '', { persist: false });
+                }
+                // Prefer agent resume/load; if that fails, first send will re-inject UI history
+                forceContextResync = chatHistory.length > 0;
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }
+
+            async function refreshAiStatus() {
+                try {
+                    const q = acpSessionId ? `?acpSessionId=${encodeURIComponent(acpSessionId)}` : '';
+                    const r = await fetchWithAuth('/api/ai/status' + q);
+                    const st = await r.json();
+                    if (st.acpSessionId) setAcpSessionId(st.acpSessionId);
+                    if (st.needsHistoryResync && chatHistory.length > 0) {
+                        forceContextResync = true;
+                    } else if ((st.sessionMethod === 'resume' || st.sessionMethod === 'load') && !st.needsHistoryResync) {
+                        // Agent already has this session's memory — no need to re-inject UI log
+                        forceContextResync = false;
+                    }
+                    if (st.configured) {
+                        const sync = forceContextResync ? ' · will sync context' : ' · context linked';
+                        chatStatus.textContent = `Grok agent · ${st.model || 'ready'} · ${st.hosts} hosts${sync}`;
+                        chatStatus.className = 'ok';
+                        chatSend.disabled = false;
+                    } else if (!st.secretConfigured) {
+                        chatStatus.textContent = 'Set GROK_AGENT_SECRET in .env';
+                        chatStatus.className = 'err';
+                        chatSend.disabled = true;
+                    } else {
+                        chatStatus.textContent = st.agentError
+                            ? `Agent offline: ${st.agentError}`
+                            : 'Start: grok agent --always-approve serve';
+                        chatStatus.className = 'err';
+                        chatSend.disabled = true;
+                    }
+                } catch (e) {
+                    chatStatus.textContent = 'AI status unavailable';
+                    chatStatus.className = 'err';
+                }
+            }
+
+            async function sendChat() {
+                const text = (chatInput.value || '').trim();
+                if (!text || chatBusy) return;
+                chatBusy = true;
+                refreshAiControlBanner();
+                chatSend.disabled = true;
+                chatInput.value = '';
+                appendChatMessage('user', text);
+                chatHistory.push({ role: 'user', content: text });
+                if (chatHistory.length > CHAT_HISTORY_MAX) chatHistory = chatHistory.slice(-CHAT_HISTORY_MAX);
+                persistChatState();
+                const resyncThisTurn = forceContextResync;
+                appendChatMessage('system',
+                    resyncThisTurn
+                        ? 'Thinking… (syncing context; terminals open live as hosts connect)'
+                        : 'Thinking… (terminals open live as hosts connect)',
+                    '',
+                    { persist: false }
+                );
+                const thinkingEl = chatBody.lastElementChild;
+                // While agent runs MCP tools, open xterm as soon as server sessions appear
+                startSessionLivePoll();
+                try {
+                    const r = await fetchWithAuth('/api/ai/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            messages: chatHistory,
+                            acpSessionId,
+                            forceResync: resyncThisTurn,
+                        }),
+                    });
+                    const data = await r.json();
+                    if (thinkingEl && thinkingEl.classList.contains('system')) thinkingEl.remove();
+                    if (data.acpSessionId) setAcpSessionId(data.acpSessionId);
+                    if (data.error && !data.reply) {
+                        appendChatMessage('system', 'Error: ' + data.error + (data.hint ? '\n' + data.hint : ''));
+                    } else {
+                        forceContextResync = false;
+                        await processClientActions(data.clientActions);
+                        await reconcileLiveSessions({ activateNew: false });
+                        let trace = Array.isArray(data.toolTrace) && data.toolTrace.length
+                            ? 'Tools: ' + data.toolTrace.map(t => t.name).join(' → ')
+                            : '';
+                        if (data.contextResynced) {
+                            trace = (trace ? trace + ' · ' : '') + 'context synced from UI';
+                        }
+                        const replyText = data.reply || data.error || '(empty)';
+                        appendChatMessage('assistant', replyText, trace || undefined);
+                        if (data.reply) {
+                            chatHistory.push({ role: 'assistant', content: data.reply });
+                            if (chatHistory.length > CHAT_HISTORY_MAX) chatHistory = chatHistory.slice(-CHAT_HISTORY_MAX);
+                            persistChatState();
+                        }
+                    }
+                } catch (e) {
+                    if (thinkingEl && thinkingEl.classList.contains('system')) thinkingEl.remove();
+                    appendChatMessage('system', 'Error: ' + e.message);
+                } finally {
+                    stopSessionLivePoll();
+                    // One last pull so AI badges settle on final state
+                    await reconcileLiveSessions({ activateNew: false });
+                    chatBusy = false;
+                    refreshAiControlBanner();
+                    refreshAiStatus();
+                }
+            }
+
+            chatSend.addEventListener('click', sendChat);
+            // Enter = newline only; send via Send button
+            document.getElementById('chat-clear').addEventListener('click', async () => {
+                if (!confirm('Clear AI chat in this browser and start a fresh Grok agent session?')) return;
+                await clearPersistedChat();
+                appendChatMessage('system', 'Chat cleared. Agent session reset; new messages start a clean context.');
+                refreshAiStatus();
+            });
+
+            const CHAT_WIDTH_KEY = 'aiChatWidth';
+            const chatResizeHandle = document.getElementById('chat-resize-handle');
+            function applyChatWidth(px) {
+                const min = 240;
+                const max = Math.min(window.innerWidth * 0.7, 720);
+                const w = Math.max(min, Math.min(max, Math.round(px)));
+                if (!chatPanel.classList.contains('collapsed')) {
+                    chatPanel.style.width = w + 'px';
+                }
+                return w;
+            }
+            function refitActiveTerminal() {
+                const active = getSessions().find(s => s.isActive);
+                if (active && terminals[active.sessionId]) {
+                    try { terminals[active.sessionId].fitAddon.fit(); } catch (_) { /* ignore */ }
+                }
+            }
+            (function restoreChatWidth() {
+                const saved = parseInt(localStorage.getItem(CHAT_WIDTH_KEY) || '', 10);
+                if (saved > 0) applyChatWidth(saved);
+            })();
+            chatResizeHandle.addEventListener('mousedown', (e) => {
+                if (chatPanel.classList.contains('collapsed')) return;
+                e.preventDefault();
+                chatPanel.classList.add('resizing');
+                document.body.classList.add('chat-resizing');
+                const onMove = (ev) => {
+                    // Panel is on the right: width = window - mouse X
+                    const w = applyChatWidth(window.innerWidth - ev.clientX);
+                    localStorage.setItem(CHAT_WIDTH_KEY, String(w));
+                    refitActiveTerminal();
+                };
+                const onUp = () => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    chatPanel.classList.remove('resizing');
+                    document.body.classList.remove('chat-resizing');
+                    refitActiveTerminal();
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+
+            document.getElementById('chat-toggle').addEventListener('click', () => {
+                chatPanel.classList.toggle('collapsed');
+                document.getElementById('chat-toggle').textContent = chatPanel.classList.contains('collapsed') ? '⟨' : '⟩';
+                if (!chatPanel.classList.contains('collapsed')) {
+                    const saved = parseInt(localStorage.getItem(CHAT_WIDTH_KEY) || '', 10);
+                    applyChatWidth(saved > 0 ? saved : 360);
+                }
+                setTimeout(refitActiveTerminal, 50);
+            });
 
             function populateServerList() {
                 const serverInput = document.getElementById('server-input');
@@ -535,6 +1418,8 @@
             function logout() {
                 localStorage.removeItem('authToken');
                 localStorage.removeItem('sshSessions');
+                // Keep AI chat in browser by default; uncomment to wipe on logout:
+                // clearPersistedChat();
                 Object.values(terminals).forEach(t => t.ws.close());
                 terminals = {};
                 document.querySelectorAll('.terminal-pane').forEach(p => p.remove());
@@ -545,6 +1430,8 @@
 
             function initializeApp() {
                 hideLoginModal();
+                refreshAiStatus();
+                restoreChatUi();
                 const sessions = getSessions();
                 if (sessions.length > 0) {
                     renderTabs();

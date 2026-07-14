@@ -17,6 +17,7 @@ SSH-Mag 是一個基於 Node.js 和現代 Web 技術的 SSH 管理工具，它�
 *   **特定主機指令**: 可設定快捷指令只在特定主機的連線中顯示。
 *   **即時互動**: 使用 WebSocket 進行低延遲的即時雙向通訊。
 *   **批量指令執行**: 支援同時對多台選定的主機執行 Shell 指令，並彙整顯示執行結果與狀態碼，方便進行群組管理與運維操作。
+*   **AI Ops 助手**: 右側 Chat 面板，後端接 **`grok agent serve`**（ACP）。Agent 透過 **ssh-mag MCP** 開關 session、在 xterm 下指令、或 batch 執行。
 
 ---
 
@@ -112,3 +113,66 @@ SSH-Mag 是一個基於 Node.js 和現代 Web 技術的 SSH 管理工具，它�
     *   選擇主機進行 **SSH 連線**。
     *   使用 **Batch Run** 進行批量指令執行。
     *   使用 **Edit Hosts** 或 **Edit Shortcuts** 線上修改設定。
+    *   使用右側 **AI Ops** 用自然語言管理主機（指令會寫入對應 xterm）。
+
+### AI 助手設定（grok agent serve）
+
+架構：
+
+```
+Browser Chat  →  SSH-Mag (ACP client)
+                      │  WebSocket ACP
+                      ▼
+              grok agent serve :2419
+                      │  MCP stdio
+                      ▼
+              mcp-ssh-mag.js  →  SSH-Mag HTTP tools  →  xterm sessions
+```
+
+1. **登入 Grok CLI**（agent 用 cached token）：
+   ```bash
+   grok
+   # 或已登入可略過
+   ```
+
+2. **在 `.env` 設定同一組 secret**（已 gitignore）：
+   ```bash
+   GROK_AGENT_SECRET=pick-a-long-random-string
+   GROK_AGENT_URL=ws://127.0.0.1:2419/ws
+   # 可選：固定 MCP 服務 token
+   # SSH_MAG_MCP_TOKEN=another-secret
+   # SSH_MAG_PUBLIC_BASE=http://127.0.0.1:3000
+   ```
+
+3. **啟動 agent（另開一個終端）**：
+   ```bash
+   grok agent --always-approve serve --bind 127.0.0.1:2419 --secret pick-a-long-random-string
+   ```
+   印出的 WebSocket URL 形如：`ws://127.0.0.1:2419/ws?server-key=...`
+
+4. **啟動 SSH-Mag**：
+   ```bash
+   node index.js
+   ```
+
+5. 瀏覽器登入後，右側狀態應為 `Grok agent · …`。
+
+**MCP 工具（agent 透過 mcp-ssh-mag.js 呼叫）**
+
+| 工具 | 作用 |
+|------|------|
+| `list_hosts` / `list_sessions` | 列出主機與作用中 session |
+| `open_host_session` | 建立 SSH session，前端自動開 xterm tab |
+| `run_in_session` | 把指令寫進互動 PTY（xterm 可見） |
+| `batch_run` | 多機非互動 exec（結果回 Chat） |
+
+危險指令（`rm -rf`、`reboot`、`mkfs` 等）會被 SSH-Mag 擋下。密碼/私鑰不會經 MCP 回傳。
+
+**對話與 Grok agent 上下文同步**
+
+| 層 | 機制 |
+|----|------|
+| 瀏覽器 | `localStorage` 存訊息 + `acpSessionId` |
+| SSH-Mag | `.acp-session.json` 記住 agent session |
+| 重連 | 優先 `session/resume` → `session/load`；失敗則 `session/new` 並把 UI 歷史塞回 prompt |
+| Clear | 清空 localStorage 並 `POST /api/ai/reset` 開新 agent session |

@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
+    "agent": "grok agent --always-approve serve --bind 127.0.0.1:2419 --secret ${GROK_AGENT_SECRET}",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -10,11 +12,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "express": "^5.1.0",
+    "express-session": "^1.18.0",
     "node-ssh": "^13.2.1",
+    "openai": "^6.46.0",
     "ssh2": "^1.17.0",
     "uuid": "^13.0.0",
-    "ws": "^8.18.3",
-    "express-session": "^1.18.0"
+    "ws": "^8.18.3"
   }
 }
